@@ -24,11 +24,40 @@ export fit_logistic
 export selectperm!
 export selectperm
 export update_partial_residuals!
+export difference! 
+export ypatzmw! 
 
 
 ###################
 ### SUBROUTINES ###
 ###################
+
+# DIFFERENCE OF TWO VECTORS
+#
+# Compute the difference x = y - z, overwriting x.
+function difference!{T <: Union(Float32, Float64)}(x::DenseArray{T,1}, y::DenseArray{T,1}, z::DenseArray{T,1}; n::Integer = length(x), a::T = 1.0, b::T = 1.0)
+	@inbounds for i = 1:n
+		x[i] = a*y[i] - b*z[i]
+	end
+	return nothing
+end
+
+# AIHT UPDATE FOR Z
+#
+# Compute x = y + a(z - w) in one pass, overwriting x. Equivalent to 
+# > copy!(x,w)
+# > axpy!(n, 1.0, z, 1, -1.0, x)
+# > axpy!(n, 1.0, y, 1, a, x)
+#
+# Name is "Y Plus A Times Z minus W".
+function ypatzmw!{T <: Union(Float32, Float64)}(x::DenseArray{T,1}, y::DenseArray{T,1}, a::T, z::DenseArray{T,1}, w::DenseArray{T,1}; n::Integer = length(x))
+	@inbounds for i = 1:n
+		x[i] = y[i] + a*(z[i] - w[i])
+	end
+	return nothing
+end
+
+
 
 # PROJECT ONTO K LARGEST COMPONENTS OF A VECTOR IN MAGNITUDE
 #
@@ -501,7 +530,7 @@ function update_xb!(xb::DenseArray{Float64,1}, x::DenseArray{Float64,2}, b::Dens
 #		println("update_xb!: i = ", i)
 		idx = indices[i]
 #		println("update_xb!: idx = ", idx)
-		for j = 1:n
+		@inbounds for j = 1:n
 #			println("update_xb!: j = ", j)
 			xb[j] += b[idx]*x[j,idx] 
 		end
