@@ -77,12 +77,24 @@ end
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function project_k!(b::DenseArray{Float64,1}, bk::DenseArray{Float64,1}, sortk::DenseArray{Int,1}, perm::DenseArray{Int,1}, k::Int; p::Int = length(b))
-	sortk    = selectperm!(perm,b,k) 
-	fill_perm!(bk, b, sortk, k=k)	# bk = b[sortk]
+function project_k!{T <: Union(Float32, Float64, Int32, Int64)}(
+	b::DenseArray{T,1}, 
+	bk::DenseArray{T,1}, 
+#	sortk::DenseArray{Int,1}, 
+	perm::DenseArray{Int,1}, 
+	k::Integer; 
+#	p::Integer = length(b)
+)
+#	sortk = select!(perm, 1:k, by = (i)->abs(b[i]), rev = true)
+	kk = k == 1 ? 1 : 1:k
+	select!(perm, kk, by = (i)->abs(b[i]), rev = true)
+	fill_perm!(bk, b, perm, k=k)	# bk = b[sortk]
 	fill!(b,0.0)
-	b[sortk] = bk
-	return b
+	@inbounds for i = 1:k
+#		b[sortk[i]] = bk[i]
+		b[perm[i]] = bk[i]
+	end
+	return nothing 
 end
 
 
@@ -103,16 +115,18 @@ end
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function selectperm!(z::DenseArray{Int,1}, x::DenseArray{Float64,1}, k::Int; p::Int = length(x)) 
+function selectperm!(z::DenseArray{Int,1}, x::DenseArray{Float64,1}, k::Integer; p::Int = length(x)) 
     k <= p                 || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
     length(z) == length(x) || throw(DimensionMismatch("Arguments z and x do not have the same length")) 
-    return select!(z, 1:k, by = (i)->abs(x[i]), rev = true)
+	kk = k == 1 ? 1 : 1:k
+    return select!(z, kk, by = (i)->abs(x[i]), rev = true)
 end 
 
 
-function selectperm(x, k::Int; p::Int = length(x), z::Array{Int,1} = collect(1:p))
+function selectperm(x, k::Integer; p::Integer = length(x), z::Array{Int,1} = collect(1:p))
 	k <= p || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
-	return select!(z, 1:k, by = (i)->abs(x[i]), rev = true)
+	kk = k == 1 ? 1 : 1:k
+	return select!(z, kk, by = (i)->abs(x[i]), rev = true)
 end 
 
 
@@ -145,7 +159,7 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function threshold!(x, tol; n::Int = length(x))
-    @inbounds @simd for i = 1:n
+    @inbounds for i = 1:n
         x[i] = ifelse(abs(x[i]) < tol, 0.0, x[i])
     end  
     return x
@@ -436,7 +450,7 @@ function fill_perm!(x::DenseArray{Float64,1}, y::DenseArray{Float64,1}, idx::Bit
 	j = 0
 
 	# loop over entire vector idx
-	@inbounds @simd for i = 1:p
+	@inbounds for i = 1:p
 
 		# if current component of idx is a true, then increment j and fill x from y 
 		if idx[i]
@@ -466,9 +480,9 @@ end
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function fill_perm!(x::DenseArray{Float64,1}, y::DenseArray{Float64,1}, idx::Array{Int,1}; k::Int = length(x))
-	k == length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)")) 
-	@inbounds @simd for i = 1:k
+function fill_perm!(x::DenseArray{Float64,1}, y::DenseArray{Float64,1}, idx::DenseArray{Int,1}; k::Int = length(x))
+	k <= length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)")) 
+	@inbounds for i = 1:k
 			x[i] = y[idx[i]]
 	end
 	return x
