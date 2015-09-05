@@ -5,8 +5,8 @@ function difference!(
 	x :: DenseArray{Float32,1}, 
 	y :: DenseArray{Float32,1}, 
 	z :: DenseArray{Float32,1}; 
-	a :: Float32 = 1.0, 
-	b :: Float32 = 1.0,
+	a :: Float32 = 1.0f0, 
+	b :: Float32 = 1.0f0,
 	n :: Integer = length(x)
 )
 	@inbounds for i = 1:n
