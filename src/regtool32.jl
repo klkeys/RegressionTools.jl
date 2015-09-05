@@ -283,7 +283,7 @@ function update_col!(
 	j :: Integer; 
 	n :: Integer = size(x,1), 
 	p :: Integer = size(x,2), 
-	a :: Float32 = 1.0
+	a :: Float32 = 1.0f0
 ) 
 	length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
 	j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
@@ -317,7 +317,7 @@ function update_col!(
 	j :: Integer; 
 	n :: Integer = size(x,1), 
 	p :: Integer = size(x,2), 
-	a :: Float32 = 1.0
+	a :: Float32 = 1.0f0
 ) 
 	length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
 	j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
@@ -356,7 +356,7 @@ function update_col!(
 	q :: Integer; 
 	n :: Integer = size(x,1), 
 	p :: Integer = size(x,2), 
-	a :: Float32 = 1.0
+	a :: Float32 = 1.0f0
 ) 
 	size(z,1) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
 	j <= p         || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
