@@ -1,3 +1,50 @@
+# STANDARDIZE A COLUMN OF A MATRIX
+#
+# For the i-th column x of a matrix X,
+# compute both the mean and standard deviation of x
+# and overwrite x with its standardized variant.
+# This function assumes all finite values.
+# Any NA or NaN will poison the computations!
+function standardize!(j::Int, x::DenseArray{Float32,2}; n::Int = size(x,1), p::Int = size(x,2), return_values::Bool = false)
+
+	j <= p || throw(ArgumentError("Column index $i exceeds number of columns $p in x"))
+
+	# accumulation variables
+	m = 0.0f0
+	s = 0.0f0
+
+	# temporary float
+	t = 0.0f0
+
+	# accumulate mean
+	@inbounds for i = 1:n
+		m += x[i,j]
+	end
+
+	# normalize mean
+	m /= n
+
+	# calculate variance 
+	@inbounds for i = 1:n
+		t = x[i,j] - m
+		t *= t
+		x[i,j] = t
+		s += t
+	end
+
+	# get (unbiased) std
+	s = sqrt(s / (n-1)) 
+	
+	# normalize column
+	@inbounds for i = 1:n
+		x[i,j] /= s
+	end
+
+	return_values && return m, s
+	return nothing
+end
+
+
 # DIFFERENCE OF TWO VECTORS
 #
 # Compute the difference x = y - z, overwriting x.
@@ -7,7 +54,7 @@ function difference!(
 	z :: DenseArray{Float32,1}; 
 	a :: Float32 = 1.0f0, 
 	b :: Float32 = 1.0f0,
-	n :: Integer = length(x)
+	n :: Int = length(x)
 )
 	@inbounds for i = 1:n
 		x[i] = a*y[i] - b*z[i]
@@ -29,7 +76,7 @@ function ypatzmw!(
 	a :: Float32, 
 	z :: DenseArray{Float32,1}, 
 	w :: DenseArray{Float32,1}; 
-	n :: Integer = length(x))
+	n :: Int = length(x))
 	@inbounds for i = 1:n
 		x[i] = y[i] + a*(z[i] - w[i])
 	end
@@ -61,8 +108,8 @@ function project_k!(
 	bk   :: DenseArray{Float32,1}, 
 #	sortk:: DenseArray{Int,1}, 
 	perm :: DenseArray{Int,1}, 
-	k    :: Integer; 
-#	p::Integer = length(b)
+	k    :: Int; 
+#	p::Int = length(b)
 )
 #	sortk = select!(perm, 1:k, by = (i)->abs(b[i]), rev = true)
 	kk = k == 1 ? 1 : 1:k
@@ -94,11 +141,11 @@ end
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function selectperm!(
+function selectpermk!(
 	z :: DenseArray{Int,1}, 
 	x :: DenseArray{Float32,1}, 
-	k :: Integer; 
-	p :: Integer = length(x)
+	k :: Int; 
+	p :: Int = length(x)
 ) 
     k <= p                 || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
     length(z) == length(x) || throw(DimensionMismatch("Arguments z and x do not have the same length")) 
@@ -108,10 +155,10 @@ function selectperm!(
 end 
 
 
-function selectperm(
+function selectpermk(
 	x :: DenseArray{Float32,1}, 
-	k :: Integer; 
-	p :: Integer           = length(x), 
+	k :: Int; 
+	p :: Int           = length(x), 
 	z :: DenseArray{Int,1} = collect(1:p)
 )
 	k <= p || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
@@ -139,7 +186,7 @@ end
 function threshold!(
 	x   :: DenseArray{Float32,1}, 
 	tol :: Float32; 
-	n   :: Integer = length(x)
+	n   :: Int = length(x)
 )
     @inbounds for i = 1:n
         x[i] = ifelse(abs(x[i]) < tol, 0.0, x[i])
@@ -197,7 +244,7 @@ function update_residuals!(
 	y  :: DenseArray{Float32,1}, 
 	b  :: DenseArray{Float32,1}; 
 	xb :: DenseArray{Float32,1} = BLAS.gemv('N', 1.0, x, b), 
-	n  :: Integer               = length(y)
+	n  :: Int               = length(y)
 )
 	@inbounds @simd for i = 1:n
 		r[i] = y[i] - xb[i]
@@ -215,9 +262,9 @@ function update_partial_residuals!(
 	x    :: DenseArray{Float32,2}, 
 	perm :: DenseArray{Int,1}, 
 	b    :: DenseArray{Float32,1}, 
-	k    :: Integer; 
-	n    :: Integer = length(r), 
-	p    :: Integer = length(b)
+	k    :: Int; 
+	n    :: Int = length(r), 
+	p    :: Int = length(b)
 )
 	k <= p || throw(error("update_partial_residuals!: k cannot exceed the length of b!"))
 	copy!(r, y)
@@ -248,7 +295,7 @@ end
 function update_indices!(
 	idx :: BitArray{1}, 
 	x   :: DenseArray{Float32,1}; 
-	p   :: Integer = length(x)
+	p   :: Int = length(x)
 )
 	length(idx) == p || throw(DimensionMismatch("update_indices!: arguments idx and x must have same length!"))
 	@inbounds @simd for i = 1:p
@@ -280,9 +327,9 @@ end
 function update_col!(
 	z :: DenseArray{Float32,1}, 
 	x :: DenseArray{Float32,2}, 
-	j :: Integer; 
-	n :: Integer = size(x,1), 
-	p :: Integer = size(x,2), 
+	j :: Int; 
+	n :: Int = size(x,1), 
+	p :: Int = size(x,2), 
 	a :: Float32 = 1.0f0
 ) 
 	length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
@@ -314,9 +361,9 @@ end
 function update_col!(
 	x :: DenseArray{Float32,2}, 
 	z :: DenseArray{Float32,1}, 
-	j :: Integer; 
-	n :: Integer = size(x,1), 
-	p :: Integer = size(x,2), 
+	j :: Int; 
+	n :: Int = size(x,1), 
+	p :: Int = size(x,2), 
 	a :: Float32 = 1.0f0
 ) 
 	length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
@@ -352,10 +399,10 @@ end
 function update_col!(
 	z :: DenseArray{Float32,2}, 
 	x :: DenseArray{Float32,2}, 
-	j :: Integer, 
-	q :: Integer; 
-	n :: Integer = size(x,1), 
-	p :: Integer = size(x,2), 
+	j :: Int, 
+	q :: Int; 
+	n :: Int = size(x,1), 
+	p :: Int = size(x,2), 
 	a :: Float32 = 1.0f0
 ) 
 	size(z,1) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
@@ -390,9 +437,9 @@ function update_xk!(
 	xk     :: DenseArray{Float32,2}, 
 	x      :: DenseArray{Float32,2}, 
 	idxvec :: BitArray{1}; 
-	k      :: Integer = size(xk,2), 
-	p      :: Integer = length(idxvec), 
-	n      :: Integer = size(x,1)
+	k      :: Int = size(xk,2), 
+	p      :: Int = length(idxvec), 
+	n      :: Int = size(x,1)
 )
 	k >= sum(idxvec) || throw(DimensionMismatch("update_xk!: number of trues in idxvec must not exceed the number of columns in xk!"))	
 	p == size(x,2)   || throw(DimensionMismatch("update_xk!: number of components in idxvec must equal the number of columns in x!"))	
@@ -431,8 +478,8 @@ function fill_perm!(
 	x   :: DenseArray{Float32,1}, 
 	y   :: DenseArray{Float32,1}, 
 	idx :: BitArray{1}; 
-	k   :: Integer = length(x), 
-	p   :: Integer = length(idx)
+	k   :: Int = length(x), 
+	p   :: Int = length(idx)
 )
 #	k <= sum(idx) || throw(DimensionMismatch("fill_perm!: length(x) != sum(idx)")) 
 
@@ -474,7 +521,7 @@ function fill_perm!(
 	x   :: DenseArray{Float32,1}, 
 	y   :: DenseArray{Float32,1}, 
 	idx :: DenseArray{Int,1}; 
-	k   :: Integer = length(x)
+	k   :: Int = length(x)
 )
 	k <= length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)")) 
 	@inbounds for i = 1:k
@@ -508,9 +555,9 @@ function update_xb!(
 	x       :: DenseArray{Float32,2}, 
 	b       :: DenseArray{Float32,1}, 
 	indices :: DenseArray{Int,1}, 
-	k       :: Integer; 
-	p       :: Integer = length(b), 
-	n       :: Integer = size(x,1)
+	k       :: Int; 
+	p       :: Int = length(b), 
+	n       :: Int = size(x,1)
 )
 	fill!(xb, 0.0)
 	for i = 1:k
@@ -545,9 +592,9 @@ function update_xb(
 	x       :: DenseArray{Float32,2}, 
 	b       :: DenseArray{Float32,1}, 
 	indices :: DenseArray{Int,1}, 
-	k       :: Integer; 
-	p       :: Integer = length(b), 
-	n       :: Integer = size(x,1)
+	k       :: Int; 
+	p       :: Int = length(b), 
+	n       :: Int = size(x,1)
 )
 	xb = zeros(n)
 	update_xb!(xb, x, b, indices, k, p=p, n=n)
@@ -556,7 +603,7 @@ end
 
 # COUNT NONZEROES ON A SUBVECTOR
 # This subroutine counts nonzeroes starting from index k0 and ending at k (inclusive) 
-function count_partialnz(x::DenseArray{Float32,1}, k0::Integer, k::Integer)
+function count_partialnz(x::DenseArray{Float32,1}, k0::Int, k::Int)
 	k0 <= k || throw(ArgumentError("Start index must not exceed end index"))
 	s = 0
 	for i = k0:k
@@ -571,7 +618,7 @@ end
 # This subroutine performs a partial fill on a vector.
 # It only works if the components are filled to the same value!
 # For more complicated partial fills, consider fill_perm!(). 
-function fill_partial!(x::DenseArray{Float32,1}, a::Float32, k0::Integer, k::Integer)
+function fill_partial!(x::DenseArray{Float32,1}, a::Float32, k0::Int, k::Int)
 	1 <= k0 <= k || throw(ArgumentError("fill_partial!: Start index must lie between 1 and end index"))
 	@inbounds @simd for i = k0:k
 		x[i] = a
@@ -588,7 +635,7 @@ function mse(
 	x  :: DenseArray{Float32,2}, 
 	b  :: DenseArray{Float32,1}; 
 	xb :: DenseArray{Float32,1} = BLAS.gemv('N', 1.0, x, b), 
-	n  :: Integer               = length(y)
+	n  :: Int               = length(y)
 )
 	n == length(xb) || throw(DimensionMismatch("y and xb must have same length"))
 	s = 0.0
@@ -610,10 +657,10 @@ function mse(
 	y  :: DenseArray{Float32,1}, 
 	x  :: DenseArray{Float32,2}, 
 	b  :: DenseArray{Float32,1}, 
-	j  :: Integer; 
+	j  :: Int; 
 	xb :: DenseArray{Float32,2} = BLAS.gemm('N', 'N', 1.0, x, b), 
-	n  :: Integer = length(y), 
-	k  :: Integer = size(b,2)
+	n  :: Int = length(y), 
+	k  :: Int = size(b,2)
 )
 	n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
 	j <= k          || throw(DimensionMismatch("Column index exceeds number of columns in B"))
@@ -636,10 +683,10 @@ function mse(
 	y  :: DenseArray{Float32,1}, 
 	x  :: DenseArray{Float32,2}, 
 	b  :: SparseMatrixCSC{Float32,Int}, 
-	j  :: Integer; 
+	j  :: Int; 
 	xb :: DenseArray{Float32,2} = x*b, 
-	n  :: Integer               = length(y), 
-	k  :: Integer               = size(b,2)
+	n  :: Int               = length(y), 
+	k  :: Int               = size(b,2)
 )
 	n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
 	j <= k          || throw(DimensionMismatch("Column index exceeds number of columns in B"))
@@ -662,8 +709,8 @@ function mses(
 	x  :: DenseArray{Float32,2}, 
 	b  :: DenseArray{Float32,1}; 
 	xb :: DenseArray{Float32,2} = BLAS.gemm('N', 'N', 1.0, x, B), 
-	n  :: Integer               = length(y), 
-	k  :: Integer               = size(b,2)
+	n  :: Int               = length(y), 
+	k  :: Int               = size(b,2)
 )
 	n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
 	output = zeros(Float32,k)
@@ -682,8 +729,8 @@ function mses(
 	x  :: DenseArray{Float32,2}, 
 	b  :: SparseMatrixCSC{Float32,Int}; 
 	xb :: DenseArray{Float32,2} = x*B, 
-	n  :: Integer               = length(y), 
-	k  :: Integer               = size(B,2)
+	n  :: Int               = length(y), 
+	k  :: Int               = size(B,2)
 )
 	n == size(xB,1) || throw(DimensionMismatch("y and xb must have same length"))
 	output = zeros(Float32,k)

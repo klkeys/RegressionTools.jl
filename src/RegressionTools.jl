@@ -25,11 +25,8 @@ export update_partial_residuals!
 export difference! 
 export ypatzmw! 
 export project_k! 
-
-if VERSION <= v"0.4.0"
-	export selectperm!
-	export selectperm
-end
+export selectpermk!
+export selectpermk
 
 include("regtool32.jl")
 include("regtool64.jl")
