@@ -3,10 +3,6 @@ module RegressionTools
 using Distances: euclidean
 #using StatsBase: logistic, softplus, logit
 
-#if VERSION >= v"0.4.0"
-#	import Base.selectperm!
-#end
-
 export threshold!
 export update_residuals! 
 export update_indices!
@@ -25,12 +21,15 @@ export logistic!
 export update_y2!
 export log2xb!
 export fit_logistic
-#export selectperm!
-#export selectperm
 export update_partial_residuals!
 export difference! 
 export ypatzmw! 
 export project_k! 
+
+if VERSION <= v"0.4.0"
+	export selectperm!
+	export selectperm
+end
 
 include("regtool32.jl")
 include("regtool64.jl")
