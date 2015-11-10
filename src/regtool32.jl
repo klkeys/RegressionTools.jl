@@ -5,7 +5,13 @@
 # and overwrite x with its standardized variant.
 # This function assumes all finite values.
 # Any NA or NaN will poison the computations!
-function standardize!(j::Int, x::DenseArray{Float32,2}; n::Int = size(x,1), p::Int = size(x,2), return_values::Bool = false)
+function standardize!(
+	j :: Int,
+	x :: DenseMatrix{Float32}; 
+	return_values :: Bool = false,
+	n :: Int = size(x,1), 
+	p :: Int = size(x,2)
+)
 
 	j <= p || throw(ArgumentError("Column index $i exceeds number of columns $p in x"))
 
@@ -49,9 +55,9 @@ end
 #
 # Compute the difference x = y - z, overwriting x.
 function difference!(
-	x :: DenseArray{Float32,1}, 
-	y :: DenseArray{Float32,1}, 
-	z :: DenseArray{Float32,1}; 
+	x :: DenseVector{Float32}, 
+	y :: DenseVector{Float32}, 
+	z :: DenseVector{Float32}; 
 	a :: Float32 = 1.0f0, 
 	b :: Float32 = 1.0f0,
 	n :: Int = length(x)
@@ -71,11 +77,11 @@ end
 #
 # Name is "Y Plus A Times Z minus W".
 function ypatzmw!(
-	x :: DenseArray{Float32,1}, 
-	y :: DenseArray{Float32,1}, 
+	x :: DenseVector{Float32}, 
+	y :: DenseVector{Float32}, 
 	a :: Float32, 
-	z :: DenseArray{Float32,1}, 
-	w :: DenseArray{Float32,1}; 
+	z :: DenseVector{Float32}, 
+	w :: DenseVector{Float32}; 
 	n :: Int = length(x))
 	@inbounds for i = 1:n
 		x[i] = y[i] + a*(z[i] - w[i])
@@ -104,10 +110,10 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function project_k!(
-	b    :: DenseArray{Float32,1}, 
-	bk   :: DenseArray{Float32,1}, 
-#	sortk:: DenseArray{Int,1}, 
-	perm :: DenseArray{Int,1}, 
+	b    :: DenseVector{Float32}, 
+	bk   :: DenseVector{Float32}, 
+#	sortk:: DenseVector{Int}, 
+	perm :: DenseVector{Int}, 
 	k    :: Int; 
 #	p::Int = length(b)
 )
@@ -142,8 +148,8 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function selectpermk!(
-	z :: DenseArray{Int,1}, 
-	x :: DenseArray{Float32,1}, 
+	z :: DenseVector{Int}, 
+	x :: DenseVector{Float32}, 
 	k :: Int; 
 	p :: Int = length(x)
 ) 
@@ -156,10 +162,10 @@ end
 
 
 function selectpermk(
-	x :: DenseArray{Float32,1}, 
+	x :: DenseVector{Float32}, 
 	k :: Int; 
 	p :: Int           = length(x), 
-	z :: DenseArray{Int,1} = collect(1:p)
+	z :: DenseVector{Int} = collect(1:p)
 )
 	k <= p || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
 	kk = k == 1 ? 1 : 1:k
@@ -184,7 +190,7 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function threshold!(
-	x   :: DenseArray{Float32,1}, 
+	x   :: DenseVector{Float32}, 
 	tol :: Float32; 
 	n   :: Int = length(x)
 )
@@ -196,14 +202,14 @@ end
 
 
 
-# calculate residuals (Y - XB)  piecemeal
-# first line does residuals = - X * x_mm
-# next line does residuals = residuals + Y = Y - X*x_mm
+# calculate residuals (y - x*b)  piecemeal
+# first line sets r = y 
+# next line does residuals = residuals - x*b
 function update_residuals!(
-	r :: Array{Float32,1}, 
+	r :: Vector{Float32}, 
 	x :: Array{Float32,2}, 
-	y :: Array{Float32,1}, 
-	b :: Array{Float32,1}
+	y :: Vector{Float32}, 
+	b :: Vector{Float32}
 )
 
     # ensure conformable arguments
@@ -229,21 +235,21 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_residuals!(
-	r :: DenseArray{Float32,1}, 
-	x :: DenseArray{Float32,2}, 
-	y :: DenseArray{Float32,1}, 
-	b :: DenseArray{Float32,1}
+	r :: DenseVector{Float32}, 
+	x :: DenseMatrix{Float32}, 
+	y :: DenseVector{Float32}, 
+	b :: DenseVector{Float32}
 )
 	copy!(r, y)
 	BLAS.gemv!('N', -1.0, x, b, 1.0, r)
 end
 
 function update_residuals!(
-	r  :: DenseArray{Float32,1}, 
-	x  :: DenseArray{Float32,2}, 
-	y  :: DenseArray{Float32,1}, 
-	b  :: DenseArray{Float32,1}; 
-	xb :: DenseArray{Float32,1} = BLAS.gemv('N', 1.0, x, b), 
+	r  :: DenseVector{Float32}, 
+	x  :: DenseMatrix{Float32}, 
+	y  :: DenseVector{Float32}, 
+	b  :: DenseVector{Float32}; 
+	xb :: DenseVector{Float32} = BLAS.gemv('N', 1.0, x, b), 
 	n  :: Int               = length(y)
 )
 	@inbounds @simd for i = 1:n
@@ -257,11 +263,11 @@ end
 
 # UPDATE PARTIAL RESIDUALS BASED ON PERMUTATION VECTOR
 function update_partial_residuals!(
-	r    :: DenseArray{Float32,1}, 
-	y    :: DenseArray{Float32,1}, 
-	x    :: DenseArray{Float32,2}, 
-	perm :: DenseArray{Int,1}, 
-	b    :: DenseArray{Float32,1}, 
+	r    :: DenseVector{Float32}, 
+	y    :: DenseVector{Float32}, 
+	x    :: DenseMatrix{Float32}, 
+	perm :: DenseVector{Int}, 
+	b    :: DenseVector{Float32}, 
 	k    :: Int; 
 	n    :: Int = length(r), 
 	p    :: Int = length(b)
@@ -294,7 +300,7 @@ end
 # klkeys@g.ucla.edu
 function update_indices!(
 	idx :: BitArray{1}, 
-	x   :: DenseArray{Float32,1}; 
+	x   :: DenseVector{Float32}; 
 	p   :: Int = length(x)
 )
 	length(idx) == p || throw(DimensionMismatch("update_indices!: arguments idx and x must have same length!"))
@@ -325,8 +331,8 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_col!(
-	z :: DenseArray{Float32,1}, 
-	x :: DenseArray{Float32,2}, 
+	z :: DenseVector{Float32}, 
+	x :: DenseMatrix{Float32}, 
 	j :: Int; 
 	n :: Int = size(x,1), 
 	p :: Int = size(x,2), 
@@ -359,8 +365,8 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_col!(
-	x :: DenseArray{Float32,2}, 
-	z :: DenseArray{Float32,1}, 
+	x :: DenseMatrix{Float32}, 
+	z :: DenseVector{Float32}, 
 	j :: Int; 
 	n :: Int = size(x,1), 
 	p :: Int = size(x,2), 
@@ -397,8 +403,8 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_col!(
-	z :: DenseArray{Float32,2}, 
-	x :: DenseArray{Float32,2}, 
+	z :: DenseMatrix{Float32}, 
+	x :: DenseMatrix{Float32}, 
 	j :: Int, 
 	q :: Int; 
 	n :: Int = size(x,1), 
@@ -434,8 +440,8 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_xk!(
-	xk     :: DenseArray{Float32,2}, 
-	x      :: DenseArray{Float32,2}, 
+	xk     :: DenseMatrix{Float32}, 
+	x      :: DenseMatrix{Float32}, 
 	idxvec :: BitArray{1}; 
 	k      :: Int = size(xk,2), 
 	p      :: Int = length(idxvec), 
@@ -475,8 +481,8 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function fill_perm!(
-	x   :: DenseArray{Float32,1}, 
-	y   :: DenseArray{Float32,1}, 
+	x   :: DenseVector{Float32}, 
+	y   :: DenseVector{Float32}, 
 	idx :: BitArray{1}; 
 	k   :: Int = length(x), 
 	p   :: Int = length(idx)
@@ -518,9 +524,9 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function fill_perm!(
-	x   :: DenseArray{Float32,1}, 
-	y   :: DenseArray{Float32,1}, 
-	idx :: DenseArray{Int,1}; 
+	x   :: DenseVector{Float32}, 
+	y   :: DenseVector{Float32}, 
+	idx :: DenseVector{Int}; 
 	k   :: Int = length(x)
 )
 	k <= length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)")) 
@@ -551,10 +557,10 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_xb!(
-	xb      :: DenseArray{Float32,1}, 
-	x       :: DenseArray{Float32,2}, 
-	b       :: DenseArray{Float32,1}, 
-	indices :: DenseArray{Int,1}, 
+	xb      :: DenseVector{Float32}, 
+	x       :: DenseMatrix{Float32}, 
+	b       :: DenseVector{Float32}, 
+	indices :: DenseVector{Int}, 
 	k       :: Int; 
 	p       :: Int = length(b), 
 	n       :: Int = size(x,1)
@@ -589,9 +595,9 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_xb(
-	x       :: DenseArray{Float32,2}, 
-	b       :: DenseArray{Float32,1}, 
-	indices :: DenseArray{Int,1}, 
+	x       :: DenseMatrix{Float32}, 
+	b       :: DenseVector{Float32}, 
+	indices :: DenseVector{Int}, 
 	k       :: Int; 
 	p       :: Int = length(b), 
 	n       :: Int = size(x,1)
@@ -603,7 +609,7 @@ end
 
 # COUNT NONZEROES ON A SUBVECTOR
 # This subroutine counts nonzeroes starting from index k0 and ending at k (inclusive) 
-function count_partialnz(x::DenseArray{Float32,1}, k0::Int, k::Int)
+function count_partialnz(x::DenseVector{Float32}, k0::Int, k::Int)
 	k0 <= k || throw(ArgumentError("Start index must not exceed end index"))
 	s = 0
 	for i = k0:k
@@ -618,7 +624,7 @@ end
 # This subroutine performs a partial fill on a vector.
 # It only works if the components are filled to the same value!
 # For more complicated partial fills, consider fill_perm!(). 
-function fill_partial!(x::DenseArray{Float32,1}, a::Float32, k0::Int, k::Int)
+function fill_partial!(x::DenseVector{Float32}, a::Float32, k0::Int, k::Int)
 	1 <= k0 <= k || throw(ArgumentError("fill_partial!: Start index must lie between 1 and end index"))
 	@inbounds @simd for i = k0:k
 		x[i] = a
@@ -631,10 +637,10 @@ end
 # COMPUTE THE MEAN SQUARED ERROR
 # This subroutine computes the average of the residuals in least squares regression.
 function mse(
-	y  :: DenseArray{Float32,1}, 
-	x  :: DenseArray{Float32,2}, 
-	b  :: DenseArray{Float32,1}; 
-	xb :: DenseArray{Float32,1} = BLAS.gemv('N', 1.0, x, b), 
+	y  :: DenseVector{Float32}, 
+	x  :: DenseMatrix{Float32}, 
+	b  :: DenseVector{Float32}; 
+	xb :: DenseVector{Float32} = BLAS.gemv('N', 1.0, x, b), 
 	n  :: Int               = length(y)
 )
 	n == length(xb) || throw(DimensionMismatch("y and xb must have same length"))
@@ -654,11 +660,11 @@ end
 # This variant works on a matrix B of betas. 
 # It computes the MSE from ONE column of B.
 function mse(
-	y  :: DenseArray{Float32,1}, 
-	x  :: DenseArray{Float32,2}, 
-	b  :: DenseArray{Float32,1}, 
+	y  :: DenseVector{Float32}, 
+	x  :: DenseMatrix{Float32}, 
+	b  :: DenseVector{Float32}, 
 	j  :: Int; 
-	xb :: DenseArray{Float32,2} = BLAS.gemm('N', 'N', 1.0, x, b), 
+	xb :: DenseMatrix{Float32} = BLAS.gemm('N', 'N', 1.0, x, b), 
 	n  :: Int = length(y), 
 	k  :: Int = size(b,2)
 )
@@ -680,11 +686,11 @@ end
 # This variant works on a matrix B of betas. 
 # It computes the MSE from ONE column of B.
 function mse(
-	y  :: DenseArray{Float32,1}, 
-	x  :: DenseArray{Float32,2}, 
+	y  :: DenseVector{Float32}, 
+	x  :: DenseMatrix{Float32}, 
 	b  :: SparseMatrixCSC{Float32,Int}, 
 	j  :: Int; 
-	xb :: DenseArray{Float32,2} = x*b, 
+	xb :: DenseMatrix{Float32} = x*b, 
 	n  :: Int               = length(y), 
 	k  :: Int               = size(b,2)
 )
@@ -705,10 +711,10 @@ end
 # This subroutine computes the average of the residuals in least squares regression.
 # This variant works on a matrix of betas. 
 function mses(
-	y  :: DenseArray{Float32,1}, 
-	x  :: DenseArray{Float32,2}, 
-	b  :: DenseArray{Float32,1}; 
-	xb :: DenseArray{Float32,2} = BLAS.gemm('N', 'N', 1.0, x, B), 
+	y  :: DenseVector{Float32}, 
+	x  :: DenseMatrix{Float32}, 
+	b  :: DenseVector{Float32}; 
+	xb :: DenseMatrix{Float32} = BLAS.gemm('N', 'N', 1.0, x, B), 
 	n  :: Int               = length(y), 
 	k  :: Int               = size(b,2)
 )
@@ -725,10 +731,10 @@ end
 # This subroutine computes the average of the residuals in least squares regression.
 # This variant works on a *sparse* matrix of betas. 
 function mses(
-	y  :: DenseArray{Float32,1}, 
-	x  :: DenseArray{Float32,2}, 
+	y  :: DenseVector{Float32}, 
+	x  :: DenseMatrix{Float32}, 
 	b  :: SparseMatrixCSC{Float32,Int}; 
-	xb :: DenseArray{Float32,2} = x*B, 
+	xb :: DenseMatrix{Float32} = x*B, 
 	n  :: Int               = length(y), 
 	k  :: Int               = size(B,2)
 )
