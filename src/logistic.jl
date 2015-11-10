@@ -18,7 +18,7 @@
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function update_residuals!(r::DenseArray{Float64,1}, x::DenseArray{Float64,2}, y::DenseArray{Float64,1}, b::DenseArray{Float64,1}, w::DenseArray{Float64,1}; xb::DenseArray{Float64,1} = BLAS.gemv('N', 1.0, x, b), n::Int = length(y), p::Int = length(b))
+function update_residuals!(r::DenseVector{Float64}, x::DenseMatrix{Float64}, y::DenseVector{Float64}, b::DenseVector{Float64}, w::DenseVector{Float64}; xb::DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b), n::Int = length(y), p::Int = length(b))
 	(n,p) == size(x) || throw(DimensionMismatch("update_residuals!: nonconformable arguments!"))
 	@inbounds @simd for i = 1:n
 		r[i] = y[i] - 0.5 - w[i] * xb[i] 
@@ -57,7 +57,7 @@ end
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function update_weights!(w::DenseArray{Float64,1}, x::DenseArray{Float64,2}, b::DenseArray{Float64,1}; xb::DenseArray{Float64,1} = BLAS.gemv('N', 1.0, x, b), n::Int = length(w), p::Int = length(b))
+function update_weights!(w::DenseVector{Float64}, x::DenseMatrix{Float64}, b::DenseVector{Float64}; xb::DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b), n::Int = length(w), p::Int = length(b))
 	(n,p) == size(x) || throw(DimensionMismatch("update_weights!: nonconformable arguments!"))
 	@inbounds @simd for i = 1:n
 		w[i] = ifelse(xb[i] == 0.0, 0.25, one_weight(i, xb))
@@ -82,7 +82,7 @@ end
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function compute_loglik(y::DenseArray{Float64,1}, x::DenseArray{Float64,2}, b::DenseArray{Float64,1}; n::Int = length(y), xb::Array{Float64,1} = BLAS.gemv('N',1.0,x,b)) 
+function compute_loglik(y::DenseVector{Float64}, x::DenseMatrix{Float64}, b::DenseVector{Float64}; n::Int = length(y), xb::Array{Float64,1} = BLAS.gemv('N',1.0,x,b)) 
 	n == length(xb) || throw(DimensionMismatch("compute_loglik: y and X*b must have same length!"))
 
 	# initialize return value
@@ -99,7 +99,7 @@ end
 
 # COMPUTE THE MEAN CLASSIFICATION ERROR
 # This subroutine computes the average number of misclassified responses in logistic regression.
-function mce(y::DenseArray{Float64,1}, x::DenseArray{Float64,2}, b::DenseArray{Float64,1}; xb::Array{Float64,1} = BLAS.gemv('N', 1.0, x, b))
+function mce(y::DenseVector{Float64}, x::DenseMatrix{Float64}, b::DenseVector{Float64}; xb::Array{Float64,1} = BLAS.gemv('N', 1.0, x, b))
 	n == length(xb) || throw(DimensionMismatch("y and xb must have same length"))
 	s = 0.0
 	t = 0.0
@@ -116,7 +116,7 @@ end
 #
 # This routine computes an approximate gradient for the loglikelihood based on the first k elements of the vector indices.
 # N.B. there is little evidence that this function is useful! Partial gradients seem to lead to instability in the algorithm.
-function loggrad(x::DenseArray{Float64,2}, y::DenseArray{Float64,1}, b::DenseArray{Float64,1}, indices::DenseArray{Int,1}, k::Int; n::Int = length(y), p::Int = size(x,2), xb::DenseArray{Float64,1} = BLAS.gemv('N', 1.0, x, b))
+function loggrad(x::DenseMatrix{Float64}, y::DenseVector{Float64}, b::DenseVector{Float64}, indices::DenseVector{Int}, k::Int; n::Int = length(y), p::Int = size(x,2), xb::DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b))
 	size(x,1) == n  || throw(DimensionMismatch("x and y must have same number of rows"))	
 	length(xb) == n || throw(DimensionMismatch("xb and y must have same number of rows"))	
 
@@ -125,7 +125,7 @@ function loggrad(x::DenseArray{Float64,2}, y::DenseArray{Float64,1}, b::DenseArr
 end
 
 # calculate gradient of loglikelihood based on indices over smaller subspace
-function loggrad!(lg::DenseArray{Float64,1}, x::DenseArray{Float64,2}, y::DenseArray{Float64,1}, b::DenseArray{Float64,1}, indices::DenseArray{Int,1}, k::Int; n::Int = length(y), p::Int = size(x,2), xb::DenseArray{Float64,1} = update_xb(x,b,indices,k, n=n, p=p)) 
+function loggrad!(lg::DenseVector{Float64}, x::DenseMatrix{Float64}, y::DenseVector{Float64}, b::DenseVector{Float64}, indices::DenseVector{Int}, k::Int; n::Int = length(y), p::Int = size(x,2), xb::DenseVector{Float64} = update_xb(x,b,indices,k, n=n, p=p)) 
 	size(x,1) == n       || throw(DimensionMismatch("x and y must have same number of rows"))	
 	length(lg) == p      || throw(DimensionMismatch("length(lg) != p"))	
 	length(indices) >= k || throw(DimensionMismatch("length(indices) < k"))	
@@ -145,7 +145,7 @@ end
 
 
 # compute the logistic function over a vector, save to another vector
-function logistic!(y::DenseArray{Float64,1}, x::DenseArray{Float64,1}; n::Int = length(y))
+function logistic!(y::DenseVector{Float64}, x::DenseVector{Float64}; n::Int = length(y))
 	length(x) == n || throw(DimensionMismatch("length(y) != length(x)"))
 	@inbounds @simd for i = 1:n
 		y[i] = logistic(x[i])
@@ -155,7 +155,7 @@ end
 
 
 # compute the logistic function over a vector for Newton's method, save to another vector
-function logistic!(y::DenseArray{Float64,1}, xb::DenseArray{Float64,1}, xlg::DenseArray{Float64,1}, mu::Float64; n::Int = length(y))
+function logistic!(y::DenseVector{Float64}, xb::DenseVector{Float64}, xlg::DenseVector{Float64}, mu::Float64; n::Int = length(y))
 	length(xb) == n  || throw(DimensionMismatch("length(y) != length(xb)"))
 	length(xlg) == n || throw(DimensionMismatch("length(y) != length(xlg)"))
 	@inbounds @simd for i = 1:n
@@ -165,7 +165,7 @@ function logistic!(y::DenseArray{Float64,1}, xb::DenseArray{Float64,1}, xlg::Den
 end
 
 # compute y - logistic(xb), based on precomputed logistic(xb), and save to another vector
-function update_y2!(y2::DenseArray{Float64,1}, y::DenseArray{Float64,1}, lxb::DenseArray{Float64,1}; n::Int = length(y2))
+function update_y2!(y2::DenseVector{Float64}, y::DenseVector{Float64}, lxb::DenseVector{Float64}; n::Int = length(y2))
 	@inbounds @simd for i = 1:n
 		y2[i] = y[i] - lxb[i]
 	end
@@ -227,7 +227,7 @@ end
 #
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
-function fit_logistic(x::DenseArray{Float64,2}, y::DenseArray{Float64,1}; n::Int = length(y), p::Int = size(x,2), b::DenseArray{Float64,1} = zeros(p), tol::Float64 = 1e-8, max_iter::Int = 50, quiet::Bool = true, b0::DenseArray{Float64,1} = copy(b), ntb::DenseArray{Float64,1} = zeros(p), db::DenseArray{Float64,1} = zeros(p), d2b::DenseArray{Float64,2} = zeros(p,p), x2::DenseArray{Float64,2} = copy(x), xb::DenseArray{Float64,1} = zeros(n), lxb::DenseArray{Float64,1} = zeros(n), l2xb::DenseArray{Float64,1} = zeros(n))
+function fit_logistic(x::DenseMatrix{Float64}, y::DenseVector{Float64}; n::Int = length(y), p::Int = size(x,2), b::DenseVector{Float64} = zeros(p), tol::Float64 = 1e-8, max_iter::Int = 50, quiet::Bool = true, b0::DenseVector{Float64} = copy(b), ntb::DenseVector{Float64} = zeros(p), db::DenseVector{Float64} = zeros(p), d2b::DenseMatrix{Float64} = zeros(p,p), x2::DenseMatrix{Float64} = copy(x), xb::DenseVector{Float64} = zeros(n), lxb::DenseVector{Float64} = zeros(n), l2xb::DenseVector{Float64} = zeros(n))
 
 	# if b is not warm-started, then ensure that it is not entirely zero
 	if sum(b) == 0.0
