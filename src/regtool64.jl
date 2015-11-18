@@ -113,18 +113,14 @@ end
 function project_k!(
 	b    :: DenseVector{Float64}, 
 	bk   :: DenseVector{Float64}, 
-#	sortk:: DenseVector{Int}, 
 	perm :: DenseVector{Int}, 
 	k    :: Int; 
-#	p::Int = length(b)
 )
-#	sortk = select!(perm, 1:k, by = (i)->abs(b[i]), rev = true)
 	kk = k == 1 ? 1 : 1:k
 	select!(perm, kk, by = (i)->abs(b[i]), rev = true)
 	fill_perm!(bk, b, perm, k=k)	# bk = b[sortk]
-	fill!(b,0.0)
+	fill!(b,zero(Float64))
 	@inbounds for i = 1:k
-#		b[sortk[i]] = bk[i]
 		b[perm[i]] = bk[i]
 	end
 	return nothing 

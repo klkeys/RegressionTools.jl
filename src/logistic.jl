@@ -144,13 +144,17 @@ end
 
 
 
-# compute the logistic function over a vector, save to another vector
-function logistic!(y::DenseVector{Float64}, x::DenseVector{Float64}; n::Int = length(y))
+# overwrite y componentwise with y = 1 / (1 + exp(x))
+function logistic!(
+	y :: DenseVector{Float64}, 
+	x :: DenseVector{Float64}; 
+	n :: Int = length(y)
+)
 	length(x) == n || throw(DimensionMismatch("length(y) != length(x)"))
 	@inbounds @simd for i = 1:n
 		y[i] = logistic(x[i])
 	end
-	return y
+	return nothing 
 end
 
 
