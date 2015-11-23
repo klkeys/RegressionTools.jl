@@ -1,7 +1,7 @@
 module RegressionTools
 
 using Distances: euclidean
-#using StatsBase: logistic, softplus, logit
+using StatsBase: logistic, softplus, logit
 
 export threshold!
 export update_residuals! 
@@ -20,16 +20,18 @@ export ypatzmw!
 export project_k! 
 export selectpermk!
 export selectpermk
-#export mce
-#export compute_loglik
-#export loggrad!
-#export logistic!
-#export update_y2!
-#export log2xb!
-#export fit_logistic
+export mce
+export compute_loglik
+export loggrad!
+export logistic!
+export update_y2!
+export log2xb!
+export fit_logistic
+export mask!
+export cv_get_folds
 
 include("regtool32.jl")
 include("regtool64.jl")
-#include("logistic.jl")
+include("logistic.jl")
 
-end	# end module RegressionTools
+end # end module RegressionTools

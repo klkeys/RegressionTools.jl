@@ -1,3 +1,60 @@
+"""
+    mask!(x,b,val,mask_val,n)
+
+A subroutine to mask entries of a vector `x`.
+
+Arguments:
+
+- `x` is the vector to mask.
+- `v` is the `Int` vector used in masking.
+- `val` is the value of `v` to use in masking.
+- `mask_val` is the actual value of the mask, i.e. if `v[i] = val` then `x[i] = mask_val`.
+
+Optional Arguments:
+
+- `n = length(x)`.
+"""
+function mask!(
+    x        :: DenseVector{Float64},
+    v        :: DenseVector{Int},
+    val      :: Int,
+    mask_val :: Float64;
+    n        :: Int = length(x)
+)
+    n == length(v) || throw(BoundsError("Vector x and its mask must have same length"))
+    @inbounds for i = 1:n
+        if v[i] == val
+            x[i] = mask_val
+        end
+    end
+    return nothing
+end
+
+"""
+CREATE UNSTRATIFIED CROSSVALIDATION PARTITION
+
+    cv_get_folds(y,q) -> Vector{Int}
+
+This function will partition the `n` components of `y` into `q` disjoint sets for unstratified `q`-fold crossvalidation.
+
+Arguments:
+
+- `y` is the `n`-vector to partition.
+- `q` is the number of disjoint sets in the partition.
+"""
+function cv_get_folds(y::DenseVector, q::Int)
+    n, r = divrem(length(y), q)
+    shuffle!([repmat(1:q, n); 1:r])
+end
+
+"Can also be called with an `Int` argument `n` instead of the data vector `y`."
+function cv_get_folds(n::Int, q::Int)
+    m, r = divrem(n, q)
+    shuffle!([repmat(1:q, m); 1:r])
+end
+
+
+
 # STANDARDIZE A COLUMN OF A MATRIX
 #
 # For the i-th column x of a matrix X,
@@ -6,48 +63,48 @@
 # This function assumes all finite values.
 # Any NA or NaN will poison the computations!
 function standardize!(
-	j :: Int, 
-	x :: DenseMatrix{Float64}; 
-	return_values :: Bool = false,
-	n :: Int = size(x,1), 
-	p :: Int = size(x,2)
+    j :: Int, 
+    x :: DenseMatrix{Float64}; 
+    return_values :: Bool = false,
+    n :: Int = size(x,1), 
+    p :: Int = size(x,2)
 )
 
-	j <= p || throw(ArgumentError("Column index $i exceeds number of columns $p in x"))
+    j <= p || throw(ArgumentError("Column index $i exceeds number of columns $p in x"))
 
-	# accumulation variables
-	m = 0.0
-	s = 0.0
+    # accumulation variables
+    m = 0.0
+    s = 0.0
 
-	# temporary float
-	t = 0.0
+    # temporary float
+    t = 0.0
 
-	# accumulate mean
-	@inbounds for i = 1:n
-		m += x[i,j]
-	end
+    # accumulate mean
+    @inbounds for i = 1:n
+        m += x[i,j]
+    end
 
-	# normalize mean
-	m /= n
+    # normalize mean
+    m /= n
 
-	# calculate variance 
-	@inbounds for i = 1:n
-		t = x[i,j] - m
-		t *= t
-		x[i,j] = t
-		s += t
-	end
+    # calculate variance 
+    @inbounds for i = 1:n
+        t = x[i,j] - m
+        t *= t
+        x[i,j] = t
+        s += t
+    end
 
-	# get (unbiased) std
-	s = sqrt(s / (n-1)) 
-	
-	# normalize column
-	@inbounds for i = 1:n
-		x[i,j] /= s
-	end
+    # get (unbiased) std
+    s = sqrt(s / (n-1)) 
+    
+    # normalize column
+    @inbounds for i = 1:n
+        x[i,j] /= s
+    end
 
-	return_values && return m, s
-	return nothing
+    return_values && return m, s
+    return nothing
 end
 
 
@@ -56,17 +113,17 @@ end
 #
 # Compute the difference x = y - z, overwriting x.
 function difference!(
-	x :: DenseVector{Float64}, 
-	y :: DenseVector{Float64}, 
-	z :: DenseVector{Float64}; 
-	a :: Float64 = 1.0, 
-	b :: Float64 = 1.0,
-	n :: Int = length(x)
+    x :: DenseVector{Float64}, 
+    y :: DenseVector{Float64}, 
+    z :: DenseVector{Float64}; 
+    a :: Float64 = 1.0, 
+    b :: Float64 = 1.0,
+    n :: Int = length(x)
 )
-	@inbounds for i = 1:n
-		x[i] = a*y[i] - b*z[i]
-	end
-	return nothing
+    @inbounds for i = 1:n
+        x[i] = a*y[i] - b*z[i]
+    end
+    return nothing
 end
 
 # AIHT UPDATE FOR Z
@@ -78,16 +135,16 @@ end
 #
 # Name is "Y Plus A Times Z minus W".
 function ypatzmw!(
-	x :: DenseVector{Float64}, 
-	y :: DenseVector{Float64}, 
-	a :: Float64, 
-	z :: DenseVector{Float64}, 
-	w :: DenseVector{Float64}; 
-	n :: Int = length(x))
-	@inbounds for i = 1:n
-		x[i] = y[i] + a*(z[i] - w[i])
-	end
-	return nothing
+    x :: DenseVector{Float64}, 
+    y :: DenseVector{Float64}, 
+    a :: Float64, 
+    z :: DenseVector{Float64}, 
+    w :: DenseVector{Float64}; 
+    n :: Int = length(x))
+    @inbounds for i = 1:n
+        x[i] = y[i] + a*(z[i] - w[i])
+    end
+    return nothing
 end
 
 
@@ -111,19 +168,19 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function project_k!(
-	b    :: DenseVector{Float64}, 
-	bk   :: DenseVector{Float64}, 
-	perm :: DenseVector{Int}, 
-	k    :: Int; 
+    b    :: DenseVector{Float64}, 
+    bk   :: DenseVector{Float64}, 
+    perm :: DenseVector{Int}, 
+    k    :: Int; 
 )
-	kk = k == 1 ? 1 : 1:k
-	select!(perm, kk, by = (i)->abs(b[i]), rev = true)
-	fill_perm!(bk, b, perm, k=k)	# bk = b[sortk]
-	fill!(b,zero(Float64))
-	@inbounds for i = 1:k
-		b[perm[i]] = bk[i]
-	end
-	return nothing 
+    kk = k == 1 ? 1 : 1:k
+    select!(perm, kk, by = (i)->abs(b[i]), rev = true)
+    fill_perm!(bk, b, perm, k=k)    # bk = b[sortk]
+    fill!(b,zero(Float64))
+    @inbounds for i = 1:k
+        b[perm[i]] = bk[i]
+    end
+    return nothing 
 end
 
 
@@ -145,28 +202,28 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function selectpermk!(
-	z :: DenseVector{Int}, 
-	x :: DenseVector{Float64}, 
-	k :: Int; 
-	p :: Int = length(x)
+    z :: DenseVector{Int}, 
+    x :: DenseVector{Float64}, 
+    k :: Int; 
+    p :: Int = length(x)
 ) 
     k <= p                 || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
     length(z) == length(x) || throw(DimensionMismatch("Arguments z and x do not have the same length")) 
-	kk = k == 1 ? 1 : 1:k
+    kk = k == 1 ? 1 : 1:k
     select!(z, kk, by = (i)->abs(x[i]), rev = true)
-	return nothing
+    return nothing
 end 
 
 
 function selectpermk(
-	x :: DenseVector{Float64}, 
-	k :: Int; 
-	p :: Int           = length(x), 
-	z :: DenseVector{Int} = collect(1:p)
+    x :: DenseVector{Float64}, 
+    k :: Int; 
+    p :: Int           = length(x), 
+    z :: DenseVector{Int} = collect(1:p)
 )
-	k <= p || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
-	kk = k == 1 ? 1 : 1:k
-	return select!(z, kk, by = (i)->abs(x[i]), rev = true)
+    k <= p || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
+    kk = k == 1 ? 1 : 1:k
+    return select!(z, kk, by = (i)->abs(x[i]), rev = true)
 end 
 
 
@@ -187,9 +244,9 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function threshold!(
-	x   :: DenseVector{Float64}, 
-	tol :: Float64; 
-	n   :: Int = length(x)
+    x   :: DenseVector{Float64}, 
+    tol :: Float64; 
+    n   :: Int = length(x)
 )
     @inbounds for i = 1:n
         x[i] = ifelse(abs(x[i]) < tol, 0.0, x[i])
@@ -203,10 +260,10 @@ end
 # first line does residuals = - X * x_mm
 # next line does residuals = residuals + Y = Y - X*x_mm
 function update_residuals!(
-	r :: Vector{Float64}, 
-	x :: Matrix{Float64}, 
-	y :: Vector{Float64}, 
-	b :: Vector{Float64}
+    r :: Vector{Float64}, 
+    x :: Matrix{Float64}, 
+    y :: Vector{Float64}, 
+    b :: Vector{Float64}
 )
 
     # ensure conformable arguments
@@ -232,52 +289,52 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_residuals!(
-	r :: DenseVector{Float64}, 
-	x :: DenseMatrix{Float64}, 
-	y :: DenseVector{Float64}, 
-	b :: DenseVector{Float64}
+    r :: DenseVector{Float64}, 
+    x :: DenseMatrix{Float64}, 
+    y :: DenseVector{Float64}, 
+    b :: DenseVector{Float64}
 )
-	copy!(r, y)
-	BLAS.gemv!('N', -1.0, x, b, 1.0, r)
+    copy!(r, y)
+    BLAS.gemv!('N', -1.0, x, b, 1.0, r)
 end
 
 function update_residuals!(
-	r  :: DenseVector{Float64}, 
-	x  :: DenseMatrix{Float64}, 
-	y  :: DenseVector{Float64}, 
-	b  :: DenseVector{Float64}; 
-	xb :: DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b), 
-	n  :: Int               = length(y)
+    r  :: DenseVector{Float64}, 
+    x  :: DenseMatrix{Float64}, 
+    y  :: DenseVector{Float64}, 
+    b  :: DenseVector{Float64}; 
+    xb :: DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b), 
+    n  :: Int               = length(y)
 )
-	@inbounds @simd for i = 1:n
-		r[i] = y[i] - xb[i]
-	end
+    @inbounds @simd for i = 1:n
+        r[i] = y[i] - xb[i]
+    end
 
-	return nothing 
+    return nothing 
 end
 
 
 
 # UPDATE PARTIAL RESIDUALS BASED ON PERMUTATION VECTOR
 function update_partial_residuals!(
-	r    :: DenseVector{Float64}, 
-	y    :: DenseVector{Float64}, 
-	x    :: DenseMatrix{Float64}, 
-	perm :: DenseVector{Int}, 
-	b    :: DenseVector{Float64}, 
-	k    :: Int; 
-	n    :: Int = length(r), 
-	p    :: Int = length(b)
+    r    :: DenseVector{Float64}, 
+    y    :: DenseVector{Float64}, 
+    x    :: DenseMatrix{Float64}, 
+    perm :: DenseVector{Int}, 
+    b    :: DenseVector{Float64}, 
+    k    :: Int; 
+    n    :: Int = length(r), 
+    p    :: Int = length(b)
 )
-	k <= p || throw(error("update_partial_residuals!: k cannot exceed the length of b!"))
-	copy!(r, y)
-	@inbounds for j = 1:k
-		idx = perm[j]
-		@inbounds @simd for i = 1:n
-			r[i] += -b[idx]*x[i,idx]
-		end
-	end
-	return nothing 
+    k <= p || throw(error("update_partial_residuals!: k cannot exceed the length of b!"))
+    copy!(r, y)
+    @inbounds for j = 1:k
+        idx = perm[j]
+        @inbounds @simd for i = 1:n
+            r[i] += -b[idx]*x[i,idx]
+        end
+    end
+    return nothing 
 end
 
 
@@ -296,15 +353,15 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_indices!(
-	idx :: BitArray{1}, 
-	x   :: DenseVector{Float64}; 
-	p   :: Int = length(x)
+    idx :: BitArray{1}, 
+    x   :: DenseVector{Float64}; 
+    p   :: Int = length(x)
 )
-	length(idx) == p || throw(DimensionMismatch("update_indices!: arguments idx and x must have same length!"))
-	@inbounds @simd for i = 1:p
-		idx[i] = ifelse(x[i] != 0.0, true, false)
-	end 
-	return nothing
+    length(idx) == p || throw(DimensionMismatch("update_indices!: arguments idx and x must have same length!"))
+    @inbounds @simd for i = 1:p
+        idx[i] = ifelse(x[i] != 0.0, true, false)
+    end 
+    return nothing
 end
 
 
@@ -328,19 +385,19 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_col!(
-	z :: DenseVector{Float64}, 
-	x :: DenseMatrix{Float64}, 
-	j :: Int; 
-	n :: Int = size(x,1), 
-	p :: Int = size(x,2), 
-	a :: Float64 = 1.0
+    z :: DenseVector{Float64}, 
+    x :: DenseMatrix{Float64}, 
+    j :: Int; 
+    n :: Int = size(x,1), 
+    p :: Int = size(x,2), 
+    a :: Float64 = 1.0
 ) 
-	length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
-	j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
-	@inbounds @simd for i = 1:n
-		z[i] = a*x[i,j]
-	end
-	return nothing 
+    length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!")) 
+    j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
+    @inbounds @simd for i = 1:n
+        z[i] = a*x[i,j]
+    end
+    return nothing 
 end
 
 # UPDATE A COLUMN VECTOR OF A TEMPORARY ARRAY 
@@ -362,20 +419,20 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_col!(
-	x :: DenseMatrix{Float64}, 
-	z :: DenseVector{Float64}, 
-	j :: Int; 
-	n :: Int = size(x,1), 
-	p :: Int = size(x,2), 
-	a :: Float64 = 1.0
+    x :: DenseMatrix{Float64}, 
+    z :: DenseVector{Float64}, 
+    j :: Int; 
+    n :: Int = size(x,1), 
+    p :: Int = size(x,2), 
+    a :: Float64 = 1.0
 ) 
-	length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
-	j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
-	@inbounds @simd for i = 1:n
-		x[i,j] = a*z[i]
-	end
+    length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!")) 
+    j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
+    @inbounds @simd for i = 1:n
+        x[i,j] = a*z[i]
+    end
 
-	return nothing 
+    return nothing 
 end
 
 
@@ -400,20 +457,20 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_col!(
-	z :: DenseMatrix{Float64}, 
-	x :: DenseMatrix{Float64}, 
-	j :: Int, 
-	q :: Int; 
-	n :: Int = size(x,1), 
-	p :: Int = size(x,2), 
-	a :: Float64 = 1.0
+    z :: DenseMatrix{Float64}, 
+    x :: DenseMatrix{Float64}, 
+    j :: Int, 
+    q :: Int; 
+    n :: Int = size(x,1), 
+    p :: Int = size(x,2), 
+    a :: Float64 = 1.0
 ) 
-	size(z,1) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))	
-	j <= p         || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
-	@inbounds @simd for i = 1:n
-		z[i,q] = a*x[i,j]
-	end
-	return nothing 
+    size(z,1) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!")) 
+    j <= p         || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!")) 
+    @inbounds @simd for i = 1:n
+        z[i,q] = a*x[i,j]
+    end
+    return nothing 
 end
 
 
@@ -437,29 +494,29 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_xk!(
-	xk     :: DenseMatrix{Float64}, 
-	x      :: DenseMatrix{Float64}, 
-	idxvec :: BitArray{1}; 
-	k      :: Int = size(xk,2), 
-	p      :: Int = length(idxvec), 
-	n      :: Int = size(x,1)
+    xk     :: DenseMatrix{Float64}, 
+    x      :: DenseMatrix{Float64}, 
+    idxvec :: BitArray{1}; 
+    k      :: Int = size(xk,2), 
+    p      :: Int = length(idxvec), 
+    n      :: Int = size(x,1)
 )
-	k >= sum(idxvec) || throw(DimensionMismatch("update_xk!: number of trues in idxvec must not exceed the number of columns in xk!"))	
-	p == size(x,2)   || throw(DimensionMismatch("update_xk!: number of components in idxvec must equal the number of columns in x!"))	
+    k >= sum(idxvec) || throw(DimensionMismatch("update_xk!: number of trues in idxvec must not exceed the number of columns in xk!"))  
+    p == size(x,2)   || throw(DimensionMismatch("update_xk!: number of components in idxvec must equal the number of columns in x!"))   
 
-	# counter j is used to track the number of trues in idxvec
-	j = 0
+    # counter j is used to track the number of trues in idxvec
+    j = 0
 
-	# loop over entire vector idxvec
-	@inbounds @simd for i = 1:p
+    # loop over entire vector idxvec
+    @inbounds @simd for i = 1:p
 
-		# if current component of idxvec is a true, then increment j and fill column
-		if idxvec[i]
-			j += 1
-			update_col!(xk, x, i, j, n=n, p=p)
-		end
-	end
-	return nothing 
+        # if current component of idxvec is a true, then increment j and fill column
+        if idxvec[i]
+            j += 1
+            update_col!(xk, x, i, j, n=n, p=p)
+        end
+    end
+    return nothing 
 end
 
 # FILL A VECTOR VIA A PERMUTATION
@@ -478,31 +535,31 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function fill_perm!(
-	x   :: DenseVector{Float64}, 
-	y   :: DenseVector{Float64}, 
-	idx :: BitArray{1}; 
-	k   :: Int = length(x), 
-	p   :: Int = length(idx)
+    x   :: DenseVector{Float64}, 
+    y   :: DenseVector{Float64}, 
+    idx :: BitArray{1}; 
+    k   :: Int = length(x), 
+    p   :: Int = length(idx)
 )
-#	k <= sum(idx) || throw(DimensionMismatch("fill_perm!: length(x) != sum(idx)")) 
+#   k <= sum(idx) || throw(DimensionMismatch("fill_perm!: length(x) != sum(idx)")) 
 
-	# counter j is used to track the number of trues in idx
-	j = 0
+    # counter j is used to track the number of trues in idx
+    j = 0
 
-	# loop over entire vector idx
-	@inbounds for i = 1:p
+    # loop over entire vector idx
+    @inbounds for i = 1:p
 
-		# if current component of idx is a true, then increment j and fill x from y 
-		if idx[i]
-			j += 1
-			x[j] = y[i]
-		end
+        # if current component of idx is a true, then increment j and fill x from y 
+        if idx[i]
+            j += 1
+            x[j] = y[i]
+        end
 
-		# once x has k components, then it is completely filled and we return it
-		j == k && return x
-	end
+        # once x has k components, then it is completely filled and we return it
+        j == k && return x
+    end
 
-	return nothing 
+    return nothing 
 end
 
 # FILL A VECTOR VIA A PERMUTATION
@@ -521,16 +578,16 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function fill_perm!(
-	x   :: DenseVector{Float64}, 
-	y   :: DenseVector{Float64}, 
-	idx :: DenseVector{Int}; 
-	k   :: Int = length(x)
+    x   :: DenseVector{Float64}, 
+    y   :: DenseVector{Float64}, 
+    idx :: DenseVector{Int}; 
+    k   :: Int = length(x)
 )
-	k <= length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)")) 
-	@inbounds for i = 1:k
-			x[i] = y[idx[i]]
-	end
-	return nothing 
+    k <= length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)")) 
+    @inbounds for i = 1:k
+            x[i] = y[idx[i]]
+    end
+    return nothing 
 end
 
 
@@ -554,23 +611,23 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_xb!(
-	xb      :: DenseVector{Float64}, 
-	x       :: DenseMatrix{Float64}, 
-	b       :: DenseVector{Float64}, 
-	indices :: DenseVector{Int}, 
-	k       :: Int; 
-	p       :: Int = length(b), 
-	n       :: Int = size(x,1)
+    xb      :: DenseVector{Float64}, 
+    x       :: DenseMatrix{Float64}, 
+    b       :: DenseVector{Float64}, 
+    indices :: DenseVector{Int}, 
+    k       :: Int; 
+    p       :: Int = length(b), 
+    n       :: Int = size(x,1)
 )
-	fill!(xb, 0.0)
-	for i = 1:k
-		idx = indices[i]
-		@inbounds for j = 1:n
-			xb[j] += b[idx]*x[j,idx] 
-		end
-	end
+    fill!(xb, 0.0)
+    for i = 1:k
+        idx = indices[i]
+        @inbounds for j = 1:n
+            xb[j] += b[idx]*x[j,idx] 
+        end
+    end
 
-	return nothing 
+    return nothing 
 end
 
 # UPDATE X*B, OR UPDATE A MATRIX-VECTOR PRODUCT BY AN INDEX VECTOR
@@ -592,29 +649,29 @@ end
 # coded by Kevin L. Keys (2015)
 # klkeys@g.ucla.edu
 function update_xb(
-	x       :: DenseMatrix{Float64}, 
-	b       :: DenseVector{Float64}, 
-	indices :: DenseVector{Int}, 
-	k       :: Int; 
-	p       :: Int = length(b), 
-	n       :: Int = size(x,1)
+    x       :: DenseMatrix{Float64}, 
+    b       :: DenseVector{Float64}, 
+    indices :: DenseVector{Int}, 
+    k       :: Int; 
+    p       :: Int = length(b), 
+    n       :: Int = size(x,1)
 )
-	xb = zeros(n)
-	update_xb!(xb, x, b, indices, k, p=p, n=n)
-	return xb
+    xb = zeros(n)
+    update_xb!(xb, x, b, indices, k, p=p, n=n)
+    return xb
 end
 
 # COUNT NONZEROES ON A SUBVECTOR
 # This subroutine counts nonzeroes starting from index k0 and ending at k (inclusive) 
 function count_partialnz(x::DenseVector{Float64}, k0::Int, k::Int)
-	k0 <= k || throw(ArgumentError("Start index must not exceed end index"))
-	s = 0
-	for i = k0:k
-		if x[i] != 0.0
-			s += 1
-		end
-	end
-	return s
+    k0 <= k || throw(ArgumentError("Start index must not exceed end index"))
+    s = 0
+    for i = k0:k
+        if x[i] != 0.0
+            s += 1
+        end
+    end
+    return s
 end
 
 # PARTIALLY FILL A VECTOR WITH ONE VALUE
@@ -622,11 +679,11 @@ end
 # It only works if the components are filled to the same value!
 # For more complicated partial fills, consider fill_perm!(). 
 function fill_partial!(x::DenseVector{Float64}, a::Float64, k0::Int, k::Int)
-	1 <= k0 <= k || throw(ArgumentError("fill_partial!: Start index must lie between 1 and end index"))
-	@inbounds @simd for i = k0:k
-		x[i] = a
-	end
-	return x
+    1 <= k0 <= k || throw(ArgumentError("fill_partial!: Start index must lie between 1 and end index"))
+    @inbounds @simd for i = k0:k
+        x[i] = a
+    end
+    return x
 end
 
 
@@ -634,47 +691,21 @@ end
 # COMPUTE THE MEAN SQUARED ERROR
 # This subroutine computes the average of the residuals in least squares regression.
 function mse(
-	y  :: DenseVector{Float64}, 
-	x  :: DenseMatrix{Float64}, 
-	b  :: DenseVector{Float64}; 
-	xb :: DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b), 
-	n  :: Int               = length(y)
+    y  :: DenseVector{Float64}, 
+    x  :: DenseMatrix{Float64}, 
+    b  :: DenseVector{Float64}; 
+    xb :: DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b), 
+    n  :: Int               = length(y)
 )
-	n == length(xb) || throw(DimensionMismatch("y and xb must have same length"))
-	s = 0.0
-	t = 0.0
-	@inbounds @simd for i = 1:n
-		t  = (y[i] - xb[i])
-		t *= t
-		s += t 
-	end
-	return s / n
-end
-
-
-# COMPUTE THE MEAN SQUARED ERROR
-# This subroutine computes the average of the residuals in least squares regression.
-# This variant works on a matrix B of betas. 
-# It computes the MSE from ONE column of B.
-function mse(
-	y  :: DenseVector{Float64}, 
-	x  :: DenseMatrix{Float64}, 
-	b  :: DenseVector{Float64}, 
-	j  :: Int; 
-	xb :: DenseMatrix{Float64} = BLAS.gemm('N', 'N', 1.0, x, b), 
-	n  :: Int = length(y), 
-	k  :: Int = size(b,2)
-)
-	n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
-	j <= k          || throw(DimensionMismatch("Column index exceeds number of columns in B"))
-	s = zero(Float64) 
-	t = zero(Float64) 
-	@inbounds @simd for i = 1:n
-		t  = (y[i] - xb[i,j])
-		t *= t
-		s += t 
-	end
-	return s / n
+    n == length(xb) || throw(DimensionMismatch("y and xb must have same length"))
+    s = 0.0
+    t = 0.0
+    @inbounds @simd for i = 1:n
+        t  = (y[i] - xb[i])
+        t *= t
+        s += t 
+    end
+    return s / n
 end
 
 
@@ -683,24 +714,50 @@ end
 # This variant works on a matrix B of betas. 
 # It computes the MSE from ONE column of B.
 function mse(
-	y  :: DenseVector{Float64}, 
-	x  :: DenseMatrix{Float64}, 
-	b  :: SparseMatrixCSC{Float64,Int}, 
-	j  :: Int; 
-	xb :: DenseMatrix{Float64} = x*b, 
-	n  :: Int               = length(y), 
-	k  :: Int               = size(b,2)
+    y  :: DenseVector{Float64}, 
+    x  :: DenseMatrix{Float64}, 
+    b  :: DenseVector{Float64}, 
+    j  :: Int; 
+    xb :: DenseMatrix{Float64} = BLAS.gemm('N', 'N', 1.0, x, b), 
+    n  :: Int = length(y), 
+    k  :: Int = size(b,2)
 )
-	n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
-	j <= k          || throw(DimensionMismatch("Column index exceeds number of columns in B"))
-	s = zero(Float64) 
-	t = zero(Float64) 
-	@inbounds @simd for i = 1:n
-		t  = (y[i] - xb[i,j])
-		t *= t
-		s += t 
-	end
-	return s / n
+    n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
+    j <= k          || throw(DimensionMismatch("Column index exceeds number of columns in B"))
+    s = zero(Float64) 
+    t = zero(Float64) 
+    @inbounds @simd for i = 1:n
+        t  = (y[i] - xb[i,j])
+        t *= t
+        s += t 
+    end
+    return s / n
+end
+
+
+# COMPUTE THE MEAN SQUARED ERROR
+# This subroutine computes the average of the residuals in least squares regression.
+# This variant works on a matrix B of betas. 
+# It computes the MSE from ONE column of B.
+function mse(
+    y  :: DenseVector{Float64}, 
+    x  :: DenseMatrix{Float64}, 
+    b  :: SparseMatrixCSC{Float64,Int}, 
+    j  :: Int; 
+    xb :: DenseMatrix{Float64} = x*b, 
+    n  :: Int               = length(y), 
+    k  :: Int               = size(b,2)
+)
+    n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
+    j <= k          || throw(DimensionMismatch("Column index exceeds number of columns in B"))
+    s = zero(Float64) 
+    t = zero(Float64) 
+    @inbounds @simd for i = 1:n
+        t  = (y[i] - xb[i,j])
+        t *= t
+        s += t 
+    end
+    return s / n
 end
 
 
@@ -708,19 +765,19 @@ end
 # This subroutine computes the average of the residuals in least squares regression.
 # This variant works on a matrix of betas. 
 function mses(
-	y  :: DenseVector{Float64}, 
-	x  :: DenseMatrix{Float64}, 
-	b  :: DenseVector{Float64}; 
-	xb :: DenseMatrix{Float64} = BLAS.gemm('N', 'N', 1.0, x, B), 
-	n  :: Int               = length(y), 
-	k  :: Int               = size(b,2)
+    y  :: DenseVector{Float64}, 
+    x  :: DenseMatrix{Float64}, 
+    b  :: DenseVector{Float64}; 
+    xb :: DenseMatrix{Float64} = BLAS.gemm('N', 'N', 1.0, x, B), 
+    n  :: Int               = length(y), 
+    k  :: Int               = size(b,2)
 )
-	n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
-	output = zeros(Float64,k)
-	@inbounds @simd for i = 1:k
-		output[i] = mse(y, x, B, i, xB=xB, n=n, k=k)
-	end
-	return output 
+    n == size(xb,1) || throw(DimensionMismatch("y and xb must have same length"))
+    output = zeros(Float64,k)
+    @inbounds @simd for i = 1:k
+        output[i] = mse(y, x, B, i, xB=xB, n=n, k=k)
+    end
+    return output 
 end
 
 
@@ -728,17 +785,17 @@ end
 # This subroutine computes the average of the residuals in least squares regression.
 # This variant works on a *sparse* matrix of betas. 
 function mses(
-	y  :: DenseVector{Float64}, 
-	x  :: DenseMatrix{Float64}, 
-	b  :: SparseMatrixCSC{Float64,Int}; 
-	xb :: DenseMatrix{Float64} = x*B, 
-	n  :: Int               = length(y), 
-	k  :: Int               = size(B,2)
+    y  :: DenseVector{Float64}, 
+    x  :: DenseMatrix{Float64}, 
+    b  :: SparseMatrixCSC{Float64,Int}; 
+    xb :: DenseMatrix{Float64} = x*B, 
+    n  :: Int               = length(y), 
+    k  :: Int               = size(B,2)
 )
-	n == size(xB,1) || throw(DimensionMismatch("y and xb must have same length"))
-	output = zeros(Float64,k)
-	@inbounds @simd for i = 1:k
-		output[i] = mse(y, x, B, i, xB=xB, n=n, k=k)
-	end
-	return output 
+    n == size(xB,1) || throw(DimensionMismatch("y and xb must have same length"))
+    output = zeros(Float64,k)
+    @inbounds @simd for i = 1:k
+        output[i] = mse(y, x, B, i, xB=xB, n=n, k=k)
+    end
+    return output 
 end
