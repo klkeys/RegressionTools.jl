@@ -308,3 +308,167 @@ function fit_logistic(x::DenseMatrix{Float64}, y::DenseVector{Float64}; n::Int =
     warn("fit_logistic failed to converge in $(max_iter) iterations, exiting...")
     return b
 end
+
+# calculate residuals (Y - XB)  piecemeal
+# first line does residuals = - X * x_mm
+# next line does residuals = residuals + Y = Y - X*x_mm
+function update_residuals!(
+    r :: Vector{Float64}, 
+    x :: Matrix{Float64}, 
+    y :: Vector{Float64}, 
+    b :: Vector{Float64}
+)
+
+    # ensure conformable arguments
+    length(r) == length(y) || DimensionMismatch("update_residuals!: output vector must have same length as Y")
+    length(b) == size(x,2) || DimensionMismatch("update_residuals!: X and beta not conformable")
+
+    copy!(r, y)
+    BLAS.gemv!('N', -1.0, x, b, 1.0, r)
+end
+
+# COMPUTE RESIDUALS (Y - XB)
+# This subroutine calculates the residuals (Y - XB)  piecemeal. 
+# The first line does residuals = Y. The last line does residuals = Y - XB.
+# Note that this subroutine does no explicit error checking.
+# Instead, it relies on copy! and BLAS.gemv! to ensure conformable arguments.
+#
+# Arguments:
+# -- r is the preallocated vector of n residuals to overwrite.
+# -- x is the nxp design matrix.
+# -- y is the n-vector of responses
+# -- b is the p-vector of effect sizes
+#
+# coded by Kevin L. Keys (2015)
+# klkeys@g.ucla.edu
+function update_residuals!(
+    r :: DenseVector{Float64}, 
+    x :: DenseMatrix{Float64}, 
+    y :: DenseVector{Float64}, 
+    b :: DenseVector{Float64}
+)
+    copy!(r, y)
+    BLAS.gemv!('N', -1.0, x, b, 1.0, r)
+end
+
+function update_residuals!(
+    r  :: DenseVector{Float64}, 
+    x  :: DenseMatrix{Float64}, 
+    y  :: DenseVector{Float64}, 
+    b  :: DenseVector{Float64}; 
+    xb :: DenseVector{Float64} = BLAS.gemv('N', 1.0, x, b), 
+    n  :: Int               = length(y)
+)
+    @inbounds @simd for i = 1:n
+        r[i] = y[i] - xb[i]
+    end
+
+    return nothing 
+end
+
+
+
+# UPDATE PARTIAL RESIDUALS BASED ON PERMUTATION VECTOR
+function update_partial_residuals!(
+    r    :: DenseVector{Float64}, 
+    y    :: DenseVector{Float64}, 
+    x    :: DenseMatrix{Float64}, 
+    perm :: DenseVector{Int}, 
+    b    :: DenseVector{Float64}, 
+    k    :: Int; 
+    n    :: Int = length(r), 
+    p    :: Int = length(b)
+)
+    k <= p || throw(error("update_partial_residuals!: k cannot exceed the length of b!"))
+    copy!(r, y)
+    @inbounds for j = 1:k
+        idx = perm[j]
+        @inbounds @simd for i = 1:n
+            r[i] += -b[idx]*x[i,idx]
+        end
+    end
+    return nothing 
+end
+
+
+# COMPUTE RESIDUALS (Y - XB)
+# This subroutine calculates the residuals (Y - XB)  piecemeal. 
+# The first line does residuals = Y. The last line does residuals = Y - XB.
+# Note that this subroutine does no explicit error checking.
+# Instead, it relies on copy! and BLAS.gemv! to ensure conformable arguments.
+#
+# Arguments:
+# -- r is the preallocated vector of n residuals to overwrite.
+# -- x is the nxp design matrix.
+# -- y is the n-vector of responses
+# -- b is the p-vector of effect sizes
+#
+# coded by Kevin L. Keys (2015)
+# klkeys@g.ucla.edu
+function update_residuals!(
+    r :: DenseVector{Float32}, 
+    x :: DenseMatrix{Float32}, 
+    y :: DenseVector{Float32}, 
+    b :: DenseVector{Float32}
+)
+    copy!(r, y)
+    BLAS.gemv!('N', -1.0, x, b, 1.0, r)
+end
+
+function update_residuals!(
+    r  :: DenseVector{Float32}, 
+    x  :: DenseMatrix{Float32}, 
+    y  :: DenseVector{Float32}, 
+    b  :: DenseVector{Float32}; 
+    xb :: DenseVector{Float32} = BLAS.gemv('N', 1.0, x, b), 
+    n  :: Int               = length(y)
+)
+    @inbounds @simd for i = 1:n
+        r[i] = y[i] - xb[i]
+    end
+
+    return nothing 
+end
+
+# calculate residuals (y - x*b)  piecemeal
+# first line sets r = y 
+# next line does residuals = residuals - x*b
+function update_residuals!(
+    r :: Vector{Float32}, 
+    x :: Array{Float32,2}, 
+    y :: Vector{Float32}, 
+    b :: Vector{Float32}
+)
+
+    # ensure conformable arguments
+    length(r) == length(y) || DimensionMismatch("update_residuals!: output vector must have same length as Y")
+    length(b) == size(x,2) || DimensionMismatch("update_residuals!: X and beta not conformable")
+
+    copy!(r, y)
+    BLAS.gemv!('N', -1.0, x, b, 1.0, r)
+end
+
+
+
+# UPDATE PARTIAL RESIDUALS BASED ON PERMUTATION VECTOR
+function update_partial_residuals!(
+    r    :: DenseVector{Float32}, 
+    y    :: DenseVector{Float32}, 
+    x    :: DenseMatrix{Float32}, 
+    perm :: DenseVector{Int}, 
+    b    :: DenseVector{Float32}, 
+    k    :: Int; 
+    n    :: Int = length(r), 
+    p    :: Int = length(b)
+)
+    k <= p || throw(error("update_partial_residuals!: k cannot exceed the length of b!"))
+    copy!(r, y)
+    @inbounds for j = 1:k
+        idx = perm[j]
+        @inbounds @simd for i = 1:n
+            r[i] += -b[idx]*x[i,idx]
+        end
+    end
+    return nothing 
+end
+

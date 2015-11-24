@@ -4,7 +4,7 @@ using Distances: euclidean
 using StatsBase: logistic, softplus, logit
 
 export threshold!
-export update_residuals! 
+export update_residuals!
 export update_indices!
 export update_col!
 export update_weights!
@@ -13,11 +13,10 @@ export fill_perm!
 export update_xb!
 export count_partialnz
 export fill_partial!
-export mse
 export update_partial_residuals!
-export difference! 
-export ypatzmw! 
-export project_k! 
+export difference!
+export ypatzmw!
+export project_k!
 export selectpermk!
 export selectpermk
 export mce
