@@ -503,11 +503,11 @@ function update_xb!(
     p       :: Int = length(b),
     n       :: Int = size(x,1)
 )
-    fill!(xb, 0.0f0)
+    fill!(Xb, 0.0f0)
     @inbounds for i = 1:k
         idx = indices[i]
         @inbounds for j = 1:n
-            xb[j] += b[idx]*x[j,idx]
+            Xb[j] += b[idx]*x[j,idx]
         end
     end
 
@@ -540,9 +540,9 @@ function update_xb(
     p       :: Int = length(b),
     n       :: Int = size(x,1)
 )
-    xb = zeros(Float32, n)
-    update_xb!(xb, x, b, indices, k, p=p, n=n)
-    return xb
+    Xb = zeros(Float32, n)
+    update_xb!(Xb, x, b, indices, k, p=p, n=n)
+    return Xb
 end
 
 
@@ -554,9 +554,9 @@ function update_xb(
     p       :: Int = length(b),
     n       :: Int = size(x,1)
 )
-    xb = SharedArray(Float32, n, init = S -> S[localindexes(S)] = 0.0f0, pids=procs())
-    update_xb!(xb, x, b, indices, k, p=p, n=n)
-    return xb
+    Xb = SharedArray(Float32, n, init = S -> S[localindexes(S)] = 0.0f0, pids=procs())
+    update_xb!(Xb, x, b, indices, k, p=p, n=n)
+    return Xb
 end
 
 # COUNT NONZEROES ON A SUBVECTOR
