@@ -20,10 +20,11 @@ export project_k!
 export selectpermk!
 export selectpermk
 export mce
-export compute_loglik
-export loggrad!
+export logistic_loglik 
+export update_x!
+export df_norm
+export logistic_rad!
 export logistic!
-export update_y2!
 export log2xb!
 export fit_logistic
 export mask!
@@ -31,6 +32,7 @@ export cv_get_folds
 
 include("regtool32.jl")
 include("regtool64.jl")
-include("logistic.jl")
+include("logistic32.jl")
+include("logistic64.jl")
 
 end # end module RegressionTools

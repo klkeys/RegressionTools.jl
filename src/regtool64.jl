@@ -1,5 +1,5 @@
 """
-    mask!(x,b,val,mask_val,n)
+    mask!(x, b, val, mask_val [, n=length(x)])
 
 A subroutine to mask entries of a vector `x`.
 
