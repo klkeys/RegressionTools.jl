@@ -2,6 +2,7 @@ module RegressionTools
 
 using Distances: euclidean
 using StatsBase: logistic, softplus, logit
+using PLINK
 
 export threshold!
 export update_residuals!
@@ -23,7 +24,7 @@ export mce
 export logistic_loglik 
 export update_x!
 export df_norm
-export logistic_rad!
+export logistic_grad!
 export logistic!
 export log2xb!
 export fit_logistic
