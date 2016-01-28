@@ -217,6 +217,18 @@ function threshold!(
     return nothing
 end
 
+function threshold!(
+    x   :: DenseVector{Float32},
+    a   :: Float32,
+    tol :: Float32;
+    n   :: Int = length(x)
+)
+    @inbounds for i = 1:n
+        x[i] = ifelse(abs(x[i] - a) < tol, a, x[i])
+    end
+    return nothing
+end
+
 
 
 

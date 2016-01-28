@@ -247,6 +247,23 @@ function selectpermk(
     return select!(z, kk, by = (i)->abs(x[i]), rev = true)
 end
 
+"""
+    threshold!(x, a, tol [, n=length(x)])
+
+If fed a floating point number `a` in addition to vector `x` and tolerance `tol`,
+then `threshold!` will threshold against `a` as a center, i.e. `abs(x - a) < tol`.
+"""
+function threshold!(
+    x   :: DenseVector{Float64},
+    a   :: Float64,
+    tol :: Float64;
+    n   :: Int = length(x)
+)
+    @inbounds for i = 1:n
+        x[i] = ifelse(abs(x[i] - a) < tol, a, x[i])
+    end
+    return nothing
+end
 
 
 """
