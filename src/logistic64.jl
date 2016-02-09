@@ -203,6 +203,38 @@ function logistic_loglik(
 	return s
 end
 
+function logistic_loglik(
+	Xb      :: DenseVector{Float64},
+    y       :: DenseVector{Float64},
+	b       :: DenseVector{Float64},
+    idxs    :: BitArray{1}, 
+    mask_n  :: DenseVector{Int},
+    m_val   :: Int,
+	lambda  :: Float64,
+	k       :: Int;
+	n       :: Int = length(xb),
+    mn      :: Int = sum(mask_n),
+)
+	s = zero(Float64)
+	@inbounds for i = 1:n
+        if mask_n[i] != m_val 
+            s += log(one(Float64) + exp(Xb[i])) - Xb[i]*y[i]
+        end
+	end
+#    s /= n
+    s /= mn
+    nk = 0
+	@inbounds for i = 1:length(idxs)
+        idx = idxs[i]
+        if idx
+            s += 0.5*lambda*b[idx]*b[idx]
+            nk += 1
+        end
+        nk >= k && break
+	end
+	return s
+end
+
 """
     logistic_grad!(df, lxb, x, y, b, Xb, idxs, k, lambda [, n=length(Xb)])
 
