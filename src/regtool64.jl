@@ -1,4 +1,49 @@
 """
+    issymmetric(x) -> Bool
+
+Check if a dense `n` x `n` matrix `x` is symmetric. The worst-case complexity occurs for symmetric `x`, where `issymetric` performs `n^2 - n` comparisons and returns `true`. If `x` is not symmetric, then `issymetric returns early with `false`.
+"""
+function issymetric(
+    x :: DenseMatrix{Float64}
+)
+    # size of x?
+    (m,n) = size(x)
+
+    # can only work with square matrices
+    m == n || throw(ArgumentError("Argument x must be square"))
+
+    # loop through x
+    @inbounds for i = 1:n
+        @inbounds for j = 1:n
+            i == j && continue
+            x[i,j] == x[j,i] || return false 
+        end
+    end
+
+    return true 
+end
+
+"""
+    vecnorm(x,y) -> Float64
+
+Compute the Euclidean distance between two matrices `x` and `y` without introducing any intermediate arrays.
+"""
+function vecnorm(
+    x :: DenseMatrix{Float64},
+    y :: DenseMatrix{Float64}
+)
+    (m,n) = size(x)
+    (m,n) == size(y) || throw(DimensionMismatch("size(x) = ($m,$n) but size(y) = $(size(y))"))
+    s = zero(Float64)
+    @inbounds for j = 1:n
+        @inbounds for i = 1:m
+            s += (x[i,j] - y[i,j])^2
+        end
+    end
+    return sqrt(s)
+end
+
+"""
     mask!(x, b, val, mask_val [, n=length(x)])
 
 A subroutine to mask entries of a vector `x`.
@@ -121,6 +166,27 @@ function standardize!(
     return nothing
 end
 
+"""
+    difference!(Z, X, Y [, a=1.0, b=1.0])
+
+Compute the matrix difference `Z = a*Y - b*Z`, overwriting `Z`.
+"""
+function difference!(
+    Z :: DenseMatrix{Float64},
+    X :: DenseMatrix{Float64},
+    Y :: DenseMatrix{Float64};
+    a :: Float64 = one(Float64),
+    b :: Float64 = one(Float64),
+)
+    m,n = size(Z)
+    (m,n) == size(X) == size(Y) || throw(DimensionMismatch("Arguments, Z, X, and Y must have same size"))
+    @inbounds for j = 1:n
+        @inbounds for i = 1:m
+            Z[i,j] = a*X[i,j] - b*Y[i,j]
+        end
+    end
+    return nothing
+end
 
 """
     difference!(x, y, z [, a=1.0, b=1.0, n=length(x)])
@@ -248,10 +314,46 @@ function selectpermk(
 end
 
 """
+    threshold(X::SparseMatrixCSC, tol)
+
+Send to zero all nonzero values of a sparse vector `X` whose absolute value is less than `tol`.
+`threshold!` will throw an error if `X` contains more than one column.
+"""
+function threshold(
+    x   :: SparseMatrixCSC{Float64,Int},
+    tol :: Float64
+)
+    x.n == 1 || throw(ArgumentError("x must be a sparse vector"))
+    y = sparsevec(x.rowval,max(abs(x.nzval),tol),x.m)
+    return y
+end
+
+"""
+    threshold!(X::Matrix, tol)
+
+Send to zero all values of a matrix `X` below tolerance `tol` in absolute value.
+"""
+function threshold!(
+    x   :: DenseMatrix{Float64},
+    tol :: Float64
+)
+    m,n = size(x)
+    @inbounds for j = 1:n
+        @inbounds for i = 1:m
+            a = x[i,j]
+            if abs(a) < tol
+                x[i,j] = zero(Float64)
+            end
+        end
+    end
+    return nothing
+end
+
+"""
     threshold!(x, a, tol [, n=length(x)])
 
 If fed a floating point number `a` in addition to vector `x` and tolerance `tol`,
-then `threshold!` will threshold against `a` as a center, i.e. `abs(x - a) < tol`.
+then `threshold!` will send to zero all components of `x` where `abs(x - a) < tol`.
 """
 function threshold!(
     x   :: DenseVector{Float64},

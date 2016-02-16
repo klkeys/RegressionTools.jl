@@ -1,3 +1,38 @@
+function issymetric(
+    x :: DenseMatrix{Float32}
+)
+    # size of x?
+    (m,n) = size(x)
+
+    # can only work with square matrices
+    m == n || throw(ArgumentError("Argument x must be square"))
+
+    # loop through x
+    @inbounds for i = 1:n
+        @inbounds for j = 1:n
+            i == j && continue
+            x[i,j] == x[j,i] || return false 
+        end
+    end
+
+    return true 
+end
+
+function vecnorm(
+    x :: DenseMatrix{Float32},
+    y :: DenseMatrix{Float32}
+)
+    (m,n) = size(x)
+    (m,n) == size(y) || throw(DimensionMismatch("size(x) = ($m,$n) but size(y) = $(size(y))"))
+    s = zero(Float32)
+    @inbounds for j = 1:n
+        @inbounds for i = 1:m
+            s += (x[i,j] - y[i,j])^2
+        end
+    end
+    return sqrt(s)
+end
+
 function mask!(
     x        :: DenseVector{Float32},
     v        :: DenseVector{Int},
@@ -67,6 +102,22 @@ function standardize!(
     return nothing
 end
 
+function difference!(
+    Z :: DenseMatrix{Float32},
+    X :: DenseMatrix{Float32},
+    Y :: DenseMatrix{Float32};
+    a :: Float32 = one(Float32),
+    b :: Float32 = one(Float32),
+)
+    m,n = size(Z)
+    (m,n) == size(X) == size(Y) || throw(DimensionMismatch("Arguments, Z, X, and Y must have same size"))
+    @inbounds for j = 1:n
+        @inbounds for i = 1:m
+            Z[i,j] = a*X[i,j] - b*Y[i,j]
+        end
+    end
+    return nothing
+end
 
 # DIFFERENCE OF TWO VECTORS
 #
@@ -190,8 +241,31 @@ function selectpermk(
 end
 
 
+function threshold(
+    x   :: SparseMatrixCSC{Float32,Int},
+    tol :: Float32
+)
+    x.n == 1 || throw(ArgumentError("x must be a sparse vector"))
+    y = sparsevec(x.rowval,max(abs(x.nzval),tol),x.m)
+    return y
+end
 
 
+function threshold!(
+    x   :: DenseMatrix{Float32},
+    tol :: Float32 
+)
+    m,n = size(x)
+    @inbounds for j = 1:n
+        @inbounds for i = 1:m
+            a = x[i,j]
+            if abs(a) < tol
+                x[i,j] = zero(Float32)
+            end
+        end
+    end
+    return nothing
+end
 
 # THRESHOLD THE ELEMENTS OF A VECTOR AGAINST A TOLERANCE
 # This subroutine compares the absolute values of the components of a vector x

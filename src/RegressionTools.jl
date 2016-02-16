@@ -4,6 +4,8 @@ using Distances: euclidean
 using StatsBase: logistic, softplus, logit
 using PLINK
 
+import Base.vecnorm
+
 export threshold!
 export update_residuals!
 export update_indices!
@@ -30,6 +32,8 @@ export log2xb!
 export fit_logistic
 export mask!
 export cv_get_folds
+export vecnorm
+export issymmetric
 
 include("regtool32.jl")
 include("regtool64.jl")
