@@ -7,6 +7,7 @@ using PLINK
 import Base.vecnorm
 
 export threshold!
+export threshold
 export update_residuals!
 export update_indices!
 export update_col!

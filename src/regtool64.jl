@@ -44,7 +44,7 @@ function vecnorm(
 end
 
 """
-    mask!(x, b, val, mask_val [, n=length(x)])
+    mask!(x, v, val, mask_val [, n=length(x)])
 
 A subroutine to mask entries of a vector `x`.
 

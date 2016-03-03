@@ -471,7 +471,12 @@ function fit_logistic(
 
         # b = b0 - ntb = b0 - inv(d2b)*db 
         #   = b0 - inv[ x' diagm(pi) diagm(1 - pi) x + lambda*I] [x' (pi - y) + lambda*b]
-        ntb = d2b\db
+        try
+            ntb = d2b\db
+        catch e
+            warn("in fit_logistic, aborting after caught error: ", e)
+            return b, i, div(bktrk,max_iter)
+        end
         copy!(b,b0)
         BLAS.axpy!(p,-one(Float64),ntb,1,b,1)
 
