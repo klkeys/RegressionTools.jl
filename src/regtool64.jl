@@ -265,6 +265,23 @@ function project_k!(
     return nothing
 end
 
+function project_k!(
+    X    :: DenseMatrix{Float64},
+    perm :: DenseVector{Int},
+    k    :: Int;
+    n    :: Int = size(X,1),
+    p    :: Int = size(X,2),
+    x    :: DenseVector{Float64} = zeros(n),
+    xk   :: DenseVector{Float64} = zeros(k),
+)
+    for i = 1:p
+        update_col!(x, X, i, n=n, p=p, a=1.0)
+        project_k!(x, xk, perm, k)
+        update_col!(X, x, i, n=n, p=p, a=1.0)
+    end
+    return nothing
+end
+
 
 
 """
