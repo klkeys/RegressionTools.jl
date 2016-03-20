@@ -265,19 +265,80 @@ function project_k!(
     return nothing
 end
 
+"""
+    project_k!(X, k [, n=size(X,1), p=size(X,2), x=zeros(n), xk=zeros(k), perm=collect(1:n)])
+
+Apply `project_k!` onto each of the columns of a matrix `X`. This enforces the *same* sparsity level on each column.
+"""
 function project_k!(
     X    :: DenseMatrix{Float64},
-    perm :: DenseVector{Int},
     k    :: Int;
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
     x    :: DenseVector{Float64} = zeros(n),
     xk   :: DenseVector{Float64} = zeros(k),
+    perm :: DenseVector{Int}     = collect(1:n),
 )
+    length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
+    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
     for i = 1:p
         update_col!(x, X, i, n=n, p=p, a=1.0)
         project_k!(x, xk, perm, k)
         update_col!(X, x, i, n=n, p=p, a=1.0)
+    end
+    return nothing
+end
+
+
+"""
+    project_k!(X, K [, n=size(X,1), p=size(X,2), x=zeros(n), xk=zeros(k), perm=collect(1:n)])
+
+Apply `project_k!` onto each of the columns of a matrix `X`, where the `i`th column has sparsity level `K[i]`. This function permits a *different* sparsity level for each column.
+"""
+function project_k!(
+    X    :: DenseMatrix{Float64},
+    K    :: DenseVector{Int};
+    n    :: Int = size(X,1),
+    p    :: Int = size(X,2),
+    x    :: DenseVector{Float64} = zeros(n),
+#    xk   :: DenseVector{Float64} = zeros(k),
+    perm :: DenseVector{Int}     = collect(1:n),
+)
+    length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
+    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
+    length(K)    = p || throw(DimensionMismatch("Argument K must have one entry per column of x"))
+    for i = 1:p
+        k = K[i]
+        xk = zeros(Float64, k)
+        update_col!(x, X, i, n=n, p=p, a=1.0)
+        project_k!(x, xk, perm, k)
+        update_col!(X, x, i, n=n, p=p, a=1.0)
+    end
+    return nothing
+end
+
+"""
+    project_k!(x, X, k [, n=size(X,1), p=size(X,2), xk=zeros(k), perm=collect(1:p*n)])
+
+Apply `project_k!` onto the matrix `X` as if it were a vector. The argument `x` facilitates the projection.
+Sparsity is enforced on the matrix *as a whole*, so columns may vary in their sparsity.
+"""
+function project_k!(
+    x    :: DenseVector{Float64},
+    X    :: DenseMatrix{Float64},
+    k    :: Int;
+    n    :: Int = size(X,1),
+    p    :: Int = size(X,2),
+    xk   :: DenseVector{Float64} = zeros(k),
+    perm :: DenseVector{Int}     = collect(1:p*n),
+)
+    length(x)    = n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
+    length(perm) = n*p || throw(DimensionMismatch("Arguments x and perm must have same number of elements"))
+    copy!(x, vec(X))
+    project_k!(x, xk, perm, k)
+    fill!(X,zero(Float64))
+    for i = 1:k
+        X[perm[i]] = xk[i]
     end
     return nothing
 end
