@@ -36,9 +36,9 @@ export cv_get_folds
 export vecnorm
 export issymmetric
 
-include("regtool32.jl")
-include("regtool64.jl")
-include("logistic32.jl")
-include("logistic64.jl")
+typealias Float Union{Float32, Float64}
+
+include("regtool.jl")
+include("logistic.jl")
 
 end # end module RegressionTools

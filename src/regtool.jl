@@ -3,8 +3,8 @@
 
 Check if a dense `n` x `n` matrix `x` is symmetric. The worst-case complexity occurs for symmetric `x`, where `issymetric` performs `n^2 - n` comparisons and returns `true`. If `x` is not symmetric, then `issymetric returns early with `false`.
 """
-function issymetric(
-    x :: DenseMatrix{Float64}
+function issymetric{T <: Float}(
+    x :: DenseMatrix{T}
 )
     # size of x?
     (m,n) = size(x)
@@ -16,25 +16,25 @@ function issymetric(
     @inbounds for i = 1:n
         @inbounds for j = 1:n
             i == j && continue
-            x[i,j] == x[j,i] || return false 
+            x[i,j] == x[j,i] || return false
         end
     end
 
-    return true 
+    return true
 end
 
 """
-    vecnorm(x,y) -> Float64
+    vecnorm(x,y) -> T
 
 Compute the Euclidean distance between two matrices `x` and `y` without introducing any intermediate arrays.
 """
-function vecnorm(
-    x :: DenseMatrix{Float64},
-    y :: DenseMatrix{Float64}
+function vecnorm{T <: Float}(
+    x :: DenseMatrix{T},
+    y :: DenseMatrix{T}
 )
     (m,n) = size(x)
     (m,n) == size(y) || throw(DimensionMismatch("size(x) = ($m,$n) but size(y) = $(size(y))"))
-    s = zero(Float64)
+    s = zero(T)
     @inbounds for j = 1:n
         @inbounds for i = 1:m
             s += (x[i,j] - y[i,j])^2
@@ -59,11 +59,11 @@ Optional Arguments:
 
 - `n = length(x)`.
 """
-function mask!(
-    x        :: DenseVector{Float64},
+function mask!{T <: Float}(
+    x        :: DenseVector{T},
     v        :: DenseVector{Int},
     val      :: Int,
-    mask_val :: Float64;
+    mask_val :: T;
     n        :: Int = length(x)
 )
     n == length(v) || throw(BoundsError("Vector x and its mask must have same length"))
@@ -121,9 +121,9 @@ Output:
 
 - if `return_values` is true, then `standardize!` returns the mean `m` and standard deviation `s` of `x[:,j]`.
 """
-function standardize!(
+function standardize!{T <: Float}(
     j :: Int,
-    x :: DenseMatrix{Float64};
+    x :: DenseMatrix{T};
     return_values :: Bool = false,
     n :: Int = size(x,1),
     p :: Int = size(x,2)
@@ -132,11 +132,11 @@ function standardize!(
     j <= p || throw(ArgumentError("Column index $i exceeds number of columns $p in x"))
 
     # accumulation variables
-    m = 0.0
-    s = 0.0
+    m = zero(T)
+    s = zero(T)
 
     # temporary float
-    t = 0.0
+    t = zero(T)
 
     # accumulate mean
     @inbounds for i = 1:n
@@ -171,12 +171,12 @@ end
 
 Compute the matrix difference `Z = a*Y - b*Z`, overwriting `Z`.
 """
-function difference!(
-    Z :: DenseMatrix{Float64},
-    X :: DenseMatrix{Float64},
-    Y :: DenseMatrix{Float64};
-    a :: Float64 = one(Float64),
-    b :: Float64 = one(Float64),
+function difference!{T <: Float}(
+    Z :: DenseMatrix{T},
+    X :: DenseMatrix{T},
+    Y :: DenseMatrix{T};
+    a :: T = one(T),
+    b :: T = one(T),
 )
     m,n = size(Z)
     (m,n) == size(X) == size(Y) || throw(DimensionMismatch("Arguments, Z, X, and Y must have same size"))
@@ -193,12 +193,12 @@ end
 
 Compute the difference `x = a*y - b*z`, overwriting `x`.
 """
-function difference!(
-    x :: DenseVector{Float64},
-    y :: DenseVector{Float64},
-    z :: DenseVector{Float64};
-    a :: Float64 = 1.0,
-    b :: Float64 = 1.0,
+function difference!{T <: Float}(
+    x :: DenseVector{T},
+    y :: DenseVector{T},
+    z :: DenseVector{T};
+    a :: T = one(T),
+    b :: T = one(T),
     n :: Int = length(x)
 )
     @inbounds for i = 1:n
@@ -220,12 +220,12 @@ The unusual name represents *Y* *P*lus *A* *T*imes *Z* *m*inus *W*.
 Note that this function discards bounds checks for speed,
 so the onous is on the user to supply vectors of the same dimension!
 """
-function ypatzmw!(
-    x :: DenseVector{Float64},
-    y :: DenseVector{Float64},
-    a :: Float64,
-    z :: DenseVector{Float64},
-    w :: DenseVector{Float64};
+function ypatzmw!{T <: Float}(
+    x :: DenseVector{T},
+    y :: DenseVector{T},
+    a :: T,
+    z :: DenseVector{T},
+    w :: DenseVector{T};
     n :: Int = length(x))
     @inbounds for i = 1:n
         x[i] = y[i] + a*(z[i] - w[i])
@@ -249,16 +249,16 @@ Arguments:
 - `perm` is an `Int` array that indexes `b`.
 - `k` is the number of components of `b` to preserve.
 """
-function project_k!(
-    b    :: DenseVector{Float64},
-    bk   :: DenseVector{Float64},
+function project_k!{T <: Float}(
+    b    :: DenseVector{T},
+    bk   :: DenseVector{T},
     perm :: DenseVector{Int},
     k    :: Int;
 )
     kk = k == 1 ? 1 : 1:k
     select!(perm, kk, by = (i)->abs(b[i]), rev = true)
     fill_perm!(bk, b, perm, k=k)    # bk = b[sortk]
-    fill!(b,zero(Float64))
+    fill!(b,zero(T))
     @inbounds for i = 1:k
         b[perm[i]] = bk[i]
     end
@@ -270,21 +270,21 @@ end
 
 Apply `project_k!` onto each of the columns of a matrix `X`. This enforces the *same* sparsity level on each column.
 """
-function project_k!(
-    X    :: DenseMatrix{Float64},
+function project_k!{T <: Float}(
+    X    :: DenseMatrix{T},
     k    :: Int;
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    x    :: DenseVector{Float64} = zeros(n),
-    xk   :: DenseVector{Float64} = zeros(k),
+    x    :: DenseVector{T} = zeros(n),
+    xk   :: DenseVector{T} = zeros(k),
     perm :: DenseVector{Int}     = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
     length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
-    for i = 1:p
-        update_col!(x, X, i, n=n, p=p, a=1.0)
+    @inbounds for i = 1:p
+        update_col!(x, X, i, n=n, p=p, a=one(T))
         project_k!(x, xk, perm, k)
-        update_col!(X, x, i, n=n, p=p, a=1.0)
+        update_col!(X, x, i, n=n, p=p, a=one(T))
     end
     return nothing
 end
@@ -295,24 +295,24 @@ end
 
 Apply `project_k!` onto each of the columns of a matrix `X`, where the `i`th column has sparsity level `K[i]`. This function permits a *different* sparsity level for each column.
 """
-function project_k!(
-    X    :: DenseMatrix{Float64},
+function project_k!{T <: Float}(
+    X    :: DenseMatrix{T},
     K    :: DenseVector{Int};
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    x    :: DenseVector{Float64} = zeros(n),
-#    xk   :: DenseVector{Float64} = zeros(k),
+    x    :: DenseVector{T} = zeros(n),
+#    xk   :: DenseVector{T} = zeros(k),
     perm :: DenseVector{Int}     = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
     length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
     length(K)    = p || throw(DimensionMismatch("Argument K must have one entry per column of x"))
-    for i = 1:p
-        k = K[i]
-        xk = zeros(Float64, k)
-        update_col!(x, X, i, n=n, p=p, a=1.0)
+    @inbounds for i = 1:p
+        k  = K[i]
+        xk = zeros(T, k)
+        update_col!(x, X, i, n=n, p=p, a=one(T))
         project_k!(x, xk, perm, k)
-        update_col!(X, x, i, n=n, p=p, a=1.0)
+        update_col!(X, x, i, n=n, p=p, a=one(T))
     end
     return nothing
 end
@@ -323,21 +323,21 @@ end
 Apply `project_k!` onto the matrix `X` as if it were a vector. The argument `x` facilitates the projection.
 Sparsity is enforced on the matrix *as a whole*, so columns may vary in their sparsity.
 """
-function project_k!(
-    x    :: DenseVector{Float64},
-    X    :: DenseMatrix{Float64},
+function project_k!{T <: Float}(
+    x    :: DenseVector{T},
+    X    :: DenseMatrix{T},
     k    :: Int;
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    xk   :: DenseVector{Float64} = zeros(k),
+    xk   :: DenseVector{T} = zeros(k),
     perm :: DenseVector{Int}     = collect(1:p*n),
 )
     length(x)    = n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
     length(perm) = n*p || throw(DimensionMismatch("Arguments x and perm must have same number of elements"))
     copy!(x, vec(X))
     project_k!(x, xk, perm, k)
-    fill!(X,zero(Float64))
-    for i = 1:k
+    fill!(X,zero(T))
+    @inbounds for i = 1:k
         X[perm[i]] = xk[i]
     end
     return nothing
@@ -362,9 +362,9 @@ Optional Arguments:
 
 - `p` is the number of elements to sort. Defaults to `length(x)`.
 """
-function selectpermk!(
+function selectpermk!{T <: Float}(
     z :: DenseVector{Int},
-    x :: DenseVector{Float64},
+    x :: DenseVector{T},
     k :: Int;
     p :: Int = length(x)
 )
@@ -380,10 +380,10 @@ end
 
 This function produces a `p`-vector `z` whose top `k` entries partially sort `x` by magnitude.
 """
-function selectpermk(
-    x :: DenseVector{Float64},
+function selectpermk{T <: Float}(
+    x :: DenseVector{T},
     k :: Int;
-    p :: Int           = length(x),
+    p :: Int              = length(x),
     z :: DenseVector{Int} = collect(1:p)
 )
     k <= p || throw(ArgumentError("selectperm: k cannot exceed length of x!"))
@@ -397,9 +397,9 @@ end
 Send to zero all nonzero values of a sparse vector `X` whose absolute value is less than `tol`.
 `threshold!` will throw an error if `X` contains more than one column.
 """
-function threshold(
-    x   :: SparseMatrixCSC{Float64,Int},
-    tol :: Float64
+function threshold{T <: Float}(
+    x   :: SparseMatrixCSC{T,Int},
+    tol :: T
 )
     x.n == 1 || throw(ArgumentError("x must be a sparse vector"))
     y = sparsevec(x.rowval,max(abs(x.nzval),tol),x.m)
@@ -411,16 +411,16 @@ end
 
 Send to zero all values of a matrix `X` below tolerance `tol` in absolute value.
 """
-function threshold!(
-    x   :: DenseMatrix{Float64},
-    tol :: Float64
+function threshold!{T <: Float}(
+    x   :: DenseMatrix{T},
+    tol :: T
 )
     m,n = size(x)
     @inbounds for j = 1:n
         @inbounds for i = 1:m
             a = x[i,j]
             if abs(a) < tol
-                x[i,j] = zero(Float64)
+                x[i,j] = zero(T)
             end
         end
     end
@@ -433,10 +433,10 @@ end
 If fed a floating point number `a` in addition to vector `x` and tolerance `tol`,
 then `threshold!` will send to zero all components of `x` where `abs(x - a) < tol`.
 """
-function threshold!(
-    x   :: DenseVector{Float64},
-    a   :: Float64,
-    tol :: Float64;
+function threshold!{T <: Float}(
+    x   :: DenseVector{T},
+    a   :: T,
+    tol :: T;
     n   :: Int = length(x)
 )
     @inbounds for i = 1:n
@@ -461,13 +461,13 @@ Optional Arguments:
 
 - `n` is the length of `x`.
 """
-function threshold!(
-    x   :: DenseVector{Float64},
-    tol :: Float64;
+function threshold!{T <: Float}(
+    x   :: DenseVector{T},
+    tol :: T;
     n   :: Int = length(x)
 )
     @inbounds for i = 1:n
-        x[i] = ifelse(abs(x[i]) < tol, 0.0, x[i])
+        x[i] = ifelse(abs(x[i]) < tol, zero(T), x[i])
     end
     return nothing
 end
@@ -487,14 +487,14 @@ Optional Arguments:
 
 - `p` is the number of elements in both `x` and `idx`. Defaults to `length(x)`.
 """
-function update_indices!(
+function update_indices!{T <: Float}(
     idx :: BitArray{1},
-    x   :: DenseVector{Float64};
+    x   :: DenseVector{T};
     p   :: Int = length(x)
 )
     length(idx) == p || throw(DimensionMismatch("update_indices!: arguments idx and x must have same length!"))
-    @inbounds @simd for i = 1:p
-        idx[i] = ifelse(x[i] != 0.0, true, false)
+    @inbounds for i = 1:p
+        idx[i] = ifelse(x[i] != zero(T), true, false)
     end
     return nothing
 end
@@ -520,13 +520,13 @@ Optional Arguments:
 - `p` is the trailing dimension of `x`. Defaults to `size(x,2)`.
 - `a` scales the entries of `z`. Defaults to `1.0` (no scaling).
 """
-function update_col!(
-    z :: DenseVector{Float64},
-    x :: DenseMatrix{Float64},
+function update_col!{T <: Float}(
+    z :: DenseVector{T},
+    x :: DenseMatrix{T},
     j :: Int;
     n :: Int = size(x,1),
     p :: Int = size(x,2),
-    a :: Float64 = 1.0
+    a :: T = one(T)
 )
     length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))
     j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!"))
@@ -541,13 +541,13 @@ end
 
 Fills the `j`th column of an `n` x `p` matrix `x` with the entries in the `n`-vector `z`.
 """
-function update_col!(
-    x :: DenseMatrix{Float64},
-    z :: DenseVector{Float64},
+function update_col!{T <: Float}(
+    x :: DenseMatrix{T},
+    z :: DenseVector{T},
     j :: Int;
     n :: Int = size(x,1),
     p :: Int = size(x,2),
-    a :: Float64 = 1.0
+    a :: T = one(T)
 )
     length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))
     j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!"))
@@ -564,14 +564,14 @@ end
 
 Updates the `q`th column of a matrix `z` with the `j`th column of a matrix `x` scaled by `a`. Both `x` and `z` must have the same leading dimension `n`. Both `j` and `q` must not exceed the trailing dimension `p` of `x`.
 """
-function update_col!(
-    z :: DenseMatrix{Float64},
-    x :: DenseMatrix{Float64},
+function update_col!{T <: Float}(
+    z :: DenseMatrix{T},
+    x :: DenseMatrix{T},
     j :: Int,
     q :: Int;
     n :: Int = size(x,1),
     p :: Int = size(x,2),
-    a :: Float64 = 1.0
+    a :: T = one(T)
 )
     size(z,1) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))
     j <= p         || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!"))
@@ -600,9 +600,9 @@ Optional Arguments:
 - `p` is the trailing dimension of `x`. Defaults to `length(idx)` and is used to test conformability with `x`.
 - `n` is the leading dimension of `x` and `xk`. Defaults to `size(x,1)`.
 """
-function update_xk!(
-    xk  :: DenseMatrix{Float64},
-    x   :: DenseMatrix{Float64},
+function update_xk!{T <: Float}(
+    xk  :: DenseMatrix{T},
+    x   :: DenseMatrix{T},
     idx :: BitArray{1};
     k   :: Int = size(xk,2),
     p   :: Int = length(idx),
@@ -645,9 +645,9 @@ Optional Arguments:
 - `k = length(x)`.
 - `p = length(idx)`.
 """
-function fill_perm!(
-    x   :: DenseVector{Float64},
-    y   :: DenseVector{Float64},
+function fill_perm!{T <: Float}(
+    x   :: DenseVector{T},
+    y   :: DenseVector{T},
     idx :: BitArray{1};
     k   :: Int = length(x),
     p   :: Int = length(idx)
@@ -673,9 +673,9 @@ function fill_perm!(
     return nothing
 end
 
-function fill_perm!(
-    x   :: DenseVector{Float64},
-    y   :: DenseVector{Float64},
+function fill_perm!{T <: Float}(
+    x   :: DenseVector{T},
+    y   :: DenseVector{T},
     idx :: DenseVector{Int};
     k   :: Int = length(x)
 )
@@ -707,16 +707,16 @@ Optional Arguments:
 - `p` is the trailing dimension of `x` and the dimension of `b`. Defaults to `length(b)`
 - `n` is the leading dimension of `x` and the dimension of `Xb`. Defaults to `size(x,1)`
 """
-function update_xb!(
-    Xb      :: DenseVector{Float64},
-    x       :: DenseMatrix{Float64},
-    b       :: DenseVector{Float64},
+function update_xb!{T <: Float}(
+    Xb      :: DenseVector{T},
+    x       :: DenseMatrix{T},
+    b       :: DenseVector{T},
     indices :: DenseVector{Int},
     k       :: Int;
     p       :: Int = length(b),
     n       :: Int = size(x,1)
 )
-    fill!(Xb, 0.0)
+    fill!(Xb, zero(T))
     @inbounds for i = 1:k
         idx = indices[i]
         @inbounds for j = 1:n
@@ -733,30 +733,30 @@ end
 This function efficiently performs the "sparse" matrix-vector product `x*b`, of an `n` x `p` matrix `x` and a `p`-vector `b` with `k` nonzeroes.
 The nonzeroes are encoded in the first `k` elements of the `Int vector `indices`.
 """
-function update_xb(
-    x       :: Matrix{Float64},
-    b       :: Vector{Float64},
+function update_xb{T <: Float}(
+    x       :: Matrix{T},
+    b       :: Vector{T},
     indices :: DenseVector{Int},
     k       :: Int;
     p       :: Int = length(b),
     n       :: Int = size(x,1)
 )
-    Xb = zeros(Float64, n)
+    Xb = zeros(T, n)
     update_xb!(Xb, x, b, indices, k, p=p, n=n)
     return Xb
 end
 
 
-function update_xb(
-    x       :: SharedMatrix{Float64},
-    b       :: SharedVector{Float64},
+function update_xb{T <: Float}(
+    x       :: SharedMatrix{T},
+    b       :: SharedVector{T},
     indices :: DenseVector{Int},
     k       :: Int;
     pids    :: DenseVector = procs(),
     p       :: Int = length(b),
     n       :: Int = size(x,1)
 )
-    Xb = SharedArray(Float64, n, init = S -> S[localindexes(S)] = 0.0, pids=procs())
+    Xb = SharedArray(T, n, init = S -> S[localindexes(S)] = zero(T), pids=procs())
     update_xb!(Xb, x, b, indices, k, p=p, n=n)
     return Xb
 end
@@ -767,11 +767,15 @@ end
 This subroutine counts nonzeroes in `x` from `k0` to `k` (inclusive).
 It is more efficient than countnz(x[k0,k]).
 """
-function count_partialnz(x::DenseVector{Float64}, k0::Int, k::Int)
+function count_partialnz{T <: Float}(
+    x  :: DenseVector{T},
+    k0 :: Int,
+    k  ::Int
+)
     k0 <= k || throw(ArgumentError("Start index must not exceed end index"))
     s = 0
     for i = k0:k
-        if x[i] != 0.0
+        if x[i] != zero(T)
             s += 1
         end
     end
@@ -784,7 +788,12 @@ end
 This subroutine efficiently performs `x[k0:k] = a`.
 For more complicated partial fills, consider `fill_perm!()`.
 """
-function fill_partial!(x::DenseVector{Float64}, a::Float64, k0::Int, k::Int)
+function fill_partial!{T <: Float}(
+    x  :: DenseVector{T},
+    a  :: T,
+    k0 :: Int,
+    k  :: Int
+)
     1 <= k0 <= k || throw(ArgumentError("fill_partial!: Start index must lie between 1 and end index"))
     @inbounds @simd for i = k0:k
         x[i] = a
