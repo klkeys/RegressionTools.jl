@@ -16,7 +16,7 @@ function vec!{T <: Float}(
     # will copy X into x in column-major order
     @inbounds for j = 1:p
         @inbounds for i = 1:n
-            x[n*(p-1) + i] = X[i,j]
+            x[n*(j-1) + i] = X[i,j]
         end
     end
 
