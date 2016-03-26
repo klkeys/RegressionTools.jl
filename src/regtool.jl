@@ -1,4 +1,30 @@
 """
+    vec!(x::Vector, X::Matrix)
+
+Perform `copy!(x, vec(X))` without any intermediate arrays.
+"""
+function vec!{T <: Float}(
+    x :: DenseVector{T},
+    X :: DenseMatrix{T};
+    k :: Int = length(x),
+    n :: Int = size(X,1),
+    p :: Int = size(X,2)
+)
+    # check for conformable dimensions
+    k == n*p || throw(DimensionMismatch("Arguments x and X must have same number of elements"))
+
+    # will copy X into x in column-major order
+    @inbounds for j = 1:p
+        @inbounds for i = 1:n
+            x[n*(p-1) + i] = X[i,j]
+        end
+    end
+
+    return nothing
+end
+
+
+"""
     issymmetric(x) -> Bool
 
 Check if a dense `n` x `n` matrix `x` is symmetric. The worst-case complexity occurs for symmetric `x`, where `issymetric` performs `n^2 - n` comparisons and returns `true`. If `x` is not symmetric, then `issymetric returns early with `false`.
@@ -275,9 +301,9 @@ function project_k!{T <: Float}(
     k    :: Int;
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    x    :: DenseVector{T} = zeros(n),
-    xk   :: DenseVector{T} = zeros(k),
-    perm :: DenseVector{Int}     = collect(1:n),
+    x    :: DenseVector{T}   = zeros(n),
+    xk   :: DenseVector{T}   = zeros(k),
+    perm :: DenseVector{Int} = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
     length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
@@ -300,9 +326,9 @@ function project_k!{T <: Float}(
     K    :: DenseVector{Int};
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    x    :: DenseVector{T} = zeros(n),
-#    xk   :: DenseVector{T} = zeros(k),
-    perm :: DenseVector{Int}     = collect(1:n),
+    x    :: DenseVector{T}   = zeros(n),
+#    xk   :: DenseVector{T}   = zeros(k),
+    perm :: DenseVector{Int} = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
     length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
@@ -329,12 +355,13 @@ function project_k!{T <: Float}(
     k    :: Int;
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    xk   :: DenseVector{T} = zeros(k),
-    perm :: DenseVector{Int}     = collect(1:p*n),
+    xk   :: DenseVector{T}   = zeros(k),
+    perm :: DenseVector{Int} = collect(1:p*n),
 )
     length(x)    = n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
     length(perm) = n*p || throw(DimensionMismatch("Arguments x and perm must have same number of elements"))
-    copy!(x, vec(X))
+#    copy!(x, vec(X))
+    vec!(x, X, k=n*p, n=n, p=p)
     project_k!(x, xk, perm, k)
     fill!(X,zero(T))
     @inbounds for i = 1:k

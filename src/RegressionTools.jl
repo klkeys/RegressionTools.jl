@@ -35,6 +35,7 @@ export mask!
 export cv_get_folds
 export vecnorm
 export issymmetric
+export vec!
 
 typealias Float Union{Float32, Float64}
 
