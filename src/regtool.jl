@@ -282,8 +282,9 @@ function project_k!{T <: Float}(
     k    :: Int;
 )
     kk = k == 1 ? 1 : 1:k
-    select!(perm, kk, by = (i)->abs(b[i]), rev = true)
-    fill_perm!(bk, b, perm, k=k)    # bk = b[sortk]
+#    select!(perm, kk, by = (i)->abs(b[i]), rev = true)
+    selectperm!(perm, b, kk, by=abs, rev=true, initialized=true)
+    fill_perm!(bk, b, perm, k=k)    # bk = b[perm[kk]]
     fill!(b,zero(T))
     @inbounds for i = 1:k
         b[perm[i]] = bk[i]
