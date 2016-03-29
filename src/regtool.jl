@@ -260,6 +260,30 @@ function ypatzmw!{T <: Float}(
 end
 
 
+
+"""
+    project_k!(b, k)
+
+This function projects a vector `b` onto the set S_k = { x in R^p : || x ||_0 <= k }.
+It does so by first finding the pivot `a` of the `k` largest components of `x` in magnitude.
+`project_k!` then thresholds `b` by `abs(a)`, sending small components to 0. 
+
+Arguments:
+
+- `b` is the vector to project.
+- `k` is the number of components of `b` to preserve.
+"""
+function project_k!{T <: Float64}(
+    b    :: DenseVector{T},
+    k    :: Int;
+)
+    a = select(b, k, by = abs, rev = true)
+    threshold!(b,abs(a)) 
+    return nothing
+end
+
+
+
 """
     project_k!(b, bk, perm, k)
 
@@ -303,14 +327,15 @@ function project_k!{T <: Float}(
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
     x    :: DenseVector{T}   = zeros(n),
-    xk   :: DenseVector{T}   = zeros(k),
-    perm :: DenseVector{Int} = collect(1:n),
+#    xk   :: DenseVector{T}   = zeros(k),
+#    perm :: DenseVector{Int} = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
-    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
+#    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
     @inbounds for i = 1:p
         update_col!(x, X, i, n=n, p=p, a=one(T))
-        project_k!(x, xk, perm, k)
+#        project_k!(x, xk, perm, k)
+        project_k!(x, k)
         update_col!(X, x, i, n=n, p=p, a=one(T))
     end
     return nothing
@@ -329,16 +354,17 @@ function project_k!{T <: Float}(
     p    :: Int = size(X,2),
     x    :: DenseVector{T}   = zeros(n),
 #    xk   :: DenseVector{T}   = zeros(k),
-    perm :: DenseVector{Int} = collect(1:n),
+#    perm :: DenseVector{Int} = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
-    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
+#    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
     length(K)    = p || throw(DimensionMismatch("Argument K must have one entry per column of x"))
     @inbounds for i = 1:p
         k  = K[i]
-        xk = zeros(T, k)
+#        xk = zeros(T, k)
         update_col!(x, X, i, n=n, p=p, a=one(T))
-        project_k!(x, xk, perm, k)
+#        project_k!(x, xk, perm, k)
+        project_k!(x, k)
         update_col!(X, x, i, n=n, p=p, a=one(T))
     end
     return nothing
@@ -356,18 +382,20 @@ function project_k!{T <: Float}(
     k    :: Int;
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    xk   :: DenseVector{T}   = zeros(k),
-    perm :: DenseVector{Int} = collect(1:p*n),
+#    xk   :: DenseVector{T}   = zeros(k),
+#    perm :: DenseVector{Int} = collect(1:p*n),
 )
     length(x)    = n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
-    length(perm) = n*p || throw(DimensionMismatch("Arguments x and perm must have same number of elements"))
+#    length(perm) = n*p || throw(DimensionMismatch("Arguments x and perm must have same number of elements"))
 #    copy!(x, vec(X))
     vec!(x, X, k=n*p, n=n, p=p)
-    project_k!(x, xk, perm, k)
-    fill!(X,zero(T))
-    @inbounds for i = 1:k
-        X[perm[i]] = xk[i]
-    end
+#    project_k!(x, xk, perm, k)
+    a = select(x, k, by=abs, rev=true)
+#    fill!(X,zero(T))
+#    @inbounds for i = 1:k
+#        X[perm[i]] = xk[i]
+#    end
+    threshold!(X, abs(a))
     return nothing
 end
 
