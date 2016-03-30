@@ -262,11 +262,11 @@ end
 
 
 """
-    project_k!(b, k)
+    project_k!(x, k)
 
-This function projects a vector `b` onto the set S_k = { x in R^p : || x ||_0 <= k }.
+This function projects a vector `x` onto the set S_k = { y in R^p : || y ||_0 <= k }.
 It does so by first finding the pivot `a` of the `k` largest components of `x` in magnitude.
-`project_k!` then thresholds `b` by `abs(a)`, sending small components to 0. 
+`project_k!` then thresholds `x` by `abs(a)`, sending small components to 0. 
 
 Arguments:
 
@@ -274,11 +274,35 @@ Arguments:
 - `k` is the number of components of `b` to preserve.
 """
 function project_k!{T <: Float64}(
-    b    :: DenseVector{T},
+    x    :: DenseVector{T},
     k    :: Int;
 )
-    a = select(b, k, by = abs, rev = true)
-    threshold!(b,abs(a)) 
+    a = select(x, k, by = abs, rev = true)
+    threshold!(x,abs(a)) 
+    return nothing
+end
+
+
+"""
+    project_k!(idx::BitArray{1}, x, k)
+
+This function computes the indices that project a vector `x` onto the set S_k = { y in R^p : || y ||_0 <= k }.
+It does so by first finding the pivot `a` of the `k` largest components of `x` in magnitude.
+`project_k!` then fills `idx` with the result of `abs(x) .> a`.
+
+Arguments:
+
+- `idx` is a `BitArray` to fill with the projection of `x`.
+- `x` is the vector to project.
+- `k` is the number of components of `b` to preserve.
+"""
+function project_k!{T <: Float64}(
+    idx  :: BitArray{1},
+    x    :: DenseVector{T},
+    k    :: Int;
+)
+    a = select(x, k, by = abs, rev = true)
+    threshold!(idx,x,abs(a)) 
     return nothing
 end
 
@@ -528,6 +552,34 @@ function threshold!{T <: Float}(
     return nothing
 end
 
+"""
+    threshold!(idx::BitArray{1}, x, tol [, n=length(x)])
+
+This subroutine compares the absolute values of the components of a vector `x`
+against a thresholding tolerance `tol`. It then fills `idx` with the result of `abs(x) .> tol`. 
+
+Arguments:
+
+- `idx` is the `BitArray` to fill with the thresholding of `x`.
+- `x` is the vector to threshold.
+- `tol` is the thresholding tolerance
+
+Optional Arguments:
+
+- `n` is the length of `x`.
+"""
+function threshold!{T <: Float}(
+    idx :: BitArray{1},
+    x   :: DenseVector{T},
+    tol :: T;
+    n   :: Int = length(x)
+)
+    @inbounds for i = 1:n
+        idx[i] = abs(x[i]) > tol
+    end
+    return nothing
+end
+
 
 """
     update_indices!(idx, x [, p = length(x)])
@@ -745,7 +797,7 @@ end
 
 
 """
-    update_xb!(Xb, x, b, indices, k [, p=length(b), n=size(x,1)])
+    update_xb!(Xb, x, b, indices::Vector{Int}, k [, p=length(b), n=size(x,1)])
 
 This function efficiently performs the "sparse" matrix-vector product `x*b`, of an `n` x `p` matrix `x` and a `p`-vector `b` with `k` nonzeroes.
 The nonzeroes are encoded in the first `k` elements of the `Int vector `indices`.
@@ -780,6 +832,48 @@ function update_xb!{T <: Float}(
         end
     end
 
+    return nothing
+end
+
+
+"""
+    update_xb!(Xb, x, b, indices::BitArray{1}, k [, p=length(b), n=size(x,1)])
+
+This function efficiently performs the "sparse" matrix-vector product `x*b`, of an `n` x `p` matrix `x` and a `p`-vector `b` with `k` nonzeroes.
+The nonzeroes are encoded in the first `k` elements of the `Int vector `indices`.
+
+Arguments:
+
+- `Xb` is the array to overwrite with `x*b`.
+- `x` is the `n` x `p` design matrix.
+- `b` is the `p`-dimensional parameter vector.
+- `indices` is a `BitArray` that indexes `b`. It must have `k` instances of `true`. 
+- `k` is the number of nonzeroes in `b`.
+
+Optional Arguments:
+
+- `p` is the trailing dimension of `x` and the dimension of `b`. Defaults to `length(b)`
+- `n` is the leading dimension of `x` and the dimension of `Xb`. Defaults to `size(x,1)`
+"""
+function update_xb!{T <: Float}(
+    Xb      :: DenseVector{T},
+    x       :: DenseMatrix{T},
+    b       :: DenseVector{T},
+    indices :: BitArray{1} 
+    k       :: Int;
+    p       :: Int = length(b),
+    n       :: Int = size(x,1)
+)
+    sum(indices) == k || throw(ArgumentError("Argument indices has $(sum(indices)) trues but should have $k of them"))
+    fill!(Xb, zero(T))
+    @inbounds for i = 1:p
+        idx = indices[i]
+        if idx
+            @inbounds @simd for j = 1:n
+                Xb[j] += b[idx]*x[j,idx]
+            end
+        end
+    end
     return nothing
 end
 
