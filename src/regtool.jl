@@ -859,7 +859,7 @@ function update_xb!{T <: Float}(
     Xb      :: DenseVector{T},
     x       :: DenseMatrix{T},
     b       :: DenseVector{T},
-    indices :: BitArray{1} 
+    indices :: BitArray{1},
     k       :: Int;
     p       :: Int = length(b),
     n       :: Int = size(x,1)
