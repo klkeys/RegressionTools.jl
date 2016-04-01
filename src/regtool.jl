@@ -864,15 +864,17 @@ function update_xb!{T <: Float}(
     p       :: Int = length(b),
     n       :: Int = size(x,1)
 )
-    sum(indices) == k || throw(ArgumentError("Argument indices has $(sum(indices)) trues but should have $k of them"))
+    sum(indices) <= k || throw(ArgumentError("Argument indices with $(sum(indices)) trues should have at most $k of them"))
     fill!(Xb, zero(T))
-    @inbounds for i = 1:p
-        idx = indices[i]
-        if idx
-            @inbounds @simd for j = 1:n
-                Xb[j] += b[idx]*x[j,idx]
+    numtrue = 0
+    @inbounds for j = 1:p
+        if indices[j]
+            numtrue += 1
+            @inbounds @simd for i = 1:n
+                Xb[i] += b[j]*x[i,j]
             end
         end
+        numtrue >= k && break
     end
     return nothing
 end
