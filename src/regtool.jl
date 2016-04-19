@@ -331,7 +331,6 @@ function project_k!{T <: Float}(
 )
     kk = k == 1 ? 1 : 1:k
     select!(perm, kk, by = (i)->abs(b[i]), rev = true)
-#    selectperm!(perm, b, kk, by=abs, rev=true, initialized=true)
     fill_perm!(bk, b, perm, k=k)    # bk = b[perm[kk]]
     fill!(b,zero(T))
     @inbounds for i = 1:k
@@ -351,14 +350,10 @@ function project_k!{T <: Float}(
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
     x    :: DenseVector{T}   = zeros(n),
-#    xk   :: DenseVector{T}   = zeros(k),
-#    perm :: DenseVector{Int} = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
-#    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
     @inbounds for i = 1:p
         update_col!(x, X, i, n=n, p=p, a=one(T))
-#        project_k!(x, xk, perm, k)
         project_k!(x, k)
         update_col!(X, x, i, n=n, p=p, a=one(T))
     end
@@ -377,17 +372,12 @@ function project_k!{T <: Float}(
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
     x    :: DenseVector{T}   = zeros(n),
-#    xk   :: DenseVector{T}   = zeros(k),
-#    perm :: DenseVector{Int} = collect(1:n),
 )
     length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
-#    length(perm) = n || throw(DimensionMismatch("Arguments x and perm must have same row dimension"))
     length(K)    = p || throw(DimensionMismatch("Argument K must have one entry per column of x"))
     @inbounds for i = 1:p
         k  = K[i]
-#        xk = zeros(T, k)
         update_col!(x, X, i, n=n, p=p, a=one(T))
-#        project_k!(x, xk, perm, k)
         project_k!(x, k)
         update_col!(X, x, i, n=n, p=p, a=one(T))
     end
@@ -406,19 +396,10 @@ function project_k!{T <: Float}(
     k    :: Int;
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-#    xk   :: DenseVector{T}   = zeros(k),
-#    perm :: DenseVector{Int} = collect(1:p*n),
 )
     length(x)    = n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
-#    length(perm) = n*p || throw(DimensionMismatch("Arguments x and perm must have same number of elements"))
-#    copy!(x, vec(X))
     vec!(x, X, k=n*p, n=n, p=p)
-#    project_k!(x, xk, perm, k)
     a = select(x, k, by=abs, rev=true)
-#    fill!(X,zero(T))
-#    @inbounds for i = 1:k
-#        X[perm[i]] = xk[i]
-#    end
     threshold!(X, abs(a))
     return nothing
 end
@@ -575,7 +556,7 @@ function threshold!{T <: Float}(
     n   :: Int = length(x)
 )
     @inbounds for i = 1:n
-        idx[i] = abs(x[i]) > tol
+        idx[i] = abs(x[i]) >= tol
     end
     return nothing
 end
@@ -760,7 +741,6 @@ function fill_perm!{T <: Float}(
     k   :: Int = length(x),
     p   :: Int = length(idx)
 )
-#   k <= sum(idx) || throw(DimensionMismatch("fill_perm!: length(x) != sum(idx)"))
 
     # counter j is used to track the number of trues in idx
     j = 0
