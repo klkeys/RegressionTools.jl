@@ -77,7 +77,7 @@ function logistic!{T <: Float}(
 	n :: Int = length(y)
 )
 	n == length(x) || throw(ArgumentError("length(y) != length(x)"))
-	@inbounds for i = 1:n
+	@inbounds @simd for i = 1:n
 		y[i] = one(T) / (one(T) + exp(-x[i]))
 	end
 	return nothing
@@ -98,7 +98,7 @@ function logistic_loglik{T <: Float}(
 	n       :: Int = length(Xb)
 )
 	s = zero(T)
-	@inbounds for i = 1:n
+	@inbounds @simd for i = 1:n
 		s += log(one(T) + exp(Xb[i])) - Xb[i]*y[i]
 	end
     s /= n
@@ -139,7 +139,7 @@ function logistic_loglik{T <: Float}(
 	n       :: Int = length(xb)
 )
 	s = zero(T)
-	@inbounds for i = 1:n
+	@inbounds @simd for i = 1:n
 		s += log(one(T) + exp(Xb[i])) - Xb[i]*y[i]
 	end
     s /= n
@@ -253,10 +253,11 @@ function logistic_grad!{T <: Float}(
     n      :: Int = length(Xb)
 )
     logistic!(lxb,Xb,n=n)
+    fill!(df, zero(T))
     @inbounds for i = 1:k
         idx = idxs[i]
-        df[idx] = zero(T)
-        @inbounds for j = 1:n
+#        df[idx] = zero(T)
+        @inbounds @simd for j = 1:n
             df[idx] += x[j,idx] * (lxb[j] - y[j])
         end
         df[idx] /= n
@@ -287,11 +288,12 @@ function logistic_grad!{T <: Float}(
     mn      :: Int = sum(mask_n),
 )
     logistic!(lxb,Xb,n=n)
+    fill!(df, zero(T))
     @inbounds for i = 1:k
         idx = idxs[i]
         m   = means[idx]
         d   = invstds[idx]
-        df[idx] = zero(T)
+#        df[idx] = zero(T)
         @inbounds for j = 1:n
             if mask_n[i] == 1
                 df[idx] += (x[j,idx] - m) * d * (lxb[j] - y[j])
@@ -434,8 +436,8 @@ function fit_logistic{T <: Float}(
 )
 
     # if b is not warm-started, then ensure that it is not entirely zero
-    if sum(b) == zero(T)
-        b[1] = logit(mean(y))
+    if all(b .== 0) 
+        b[1] = logit(abs(mean(y)))
     end
 
     # initialize intermediate arrays for calculations
@@ -446,7 +448,8 @@ function fit_logistic{T <: Float}(
 
     # track objective
     old_obj = oftype(tol, Inf)
-    new_obj = logistic_loglik(Xb,y,b,lambda,p, n=n)
+#    new_obj = logistic_loglik(Xb,y,b,lambda,p, n=n)
+    new_obj = (sum(log(1 + exp(Xb))) - dot(y,Xb)) / n + lambda*sumabs2(b) / 2
 
     # output progress to console
     quiet || println("Iter\tHalves\tObjective")
@@ -460,6 +463,7 @@ function fit_logistic{T <: Float}(
         BLAS.axpy!(n, -one(T), sdata(y), 1, sdata(lxb), 1)
         BLAS.gemv!('T', one(T), sdata(x), sdata(lxb), zero(T), sdata(db))
         BLAS.scal!(p, 1/n, sdata(db), 1)
+#        scale!(sdata(db), 1/n)
         BLAS.axpy!(p, lambda, sdata(b), 1, sdata(db), 1)
 
         # d2b = (x'*diagm(l2xb)*x)/n + lambda*I
@@ -467,6 +471,7 @@ function fit_logistic{T <: Float}(
         copy!(x2,x)
         scale!(sdata(l2xb), sdata(x2))
         BLAS.gemm!('T', 'N', one(T), sdata(x), sdata(x2), zero(T), sdata(d2b))
+#        At_mul_B!(sdata(d2b), sdata(x), sdata(x2))
         d2b += lambda*I
 
         # b = b0 - ntb = b0 - inv(d2b)*db
@@ -481,7 +486,12 @@ function fit_logistic{T <: Float}(
         BLAS.axpy!(p,-one(T),ntb,1,b,1)
 
         # compute objective
-        new_obj = logistic_loglik(Xb,y,b,lambda,p, n=n)
+#        new_obj = logistic_loglik(Xb,y,b,lambda,p, n=n)
+        BLAS.gemv!('N', one(T), x, b, zero(T), Xb)
+        new_obj = (sum(log(1 + exp(Xb))) - dot(y,Xb)) / n + lambda*sumabs2(b) / 2
+
+        # control against nonfinite objective
+        !isfinite(new_obj) && throw(error("in fit_logistic, objective is no longer finite"))
 
         # backtrack
         j = 0
@@ -492,10 +502,13 @@ function fit_logistic{T <: Float}(
 
             # b = b0 - 0.5*ntb
             copy!(b,b0)
-            BLAS.axpy!(p,-one(T)*(2^(-j)),ntb,1,b,1)
+            BLAS.axpy!(p,-one(T) / (2^j),ntb,1,b,1)
 
             # recalculate objective
-            new_obj = logistic_loglik(Xb,y,b,lambda,p, n=n)
+#            new_obj = logistic_loglik(Xb,y,b,lambda,p, n=n)
+            BLAS.gemv!('N', one(T), x, b, zero(T), Xb)
+            new_obj = (sum(log(1 + exp(Xb))) - dot(y,Xb)) / n + lambda*sumabs2(b) / 2
+            !isfinite(new_obj) && throw(error("in fit_logistic, objective is no longer finite"))
         end
 
         # accumulate total backtracking steps
@@ -552,15 +565,15 @@ function fit_logistic{T <: Float}(
 )
 
     # if b is not warm-started, then ensure that it is not entirely zero
-    if sum(b) == zero(T)
+    if all(b .== 0) 
         b[1] = logit(mean(y[mask_n .== 1]))
     end
 
     # initialize intermediate arrays for calculations
     BLAS.gemv!('N', one(T), x, b, zero(T), Xb)
     log2xb!(lxb, l2xb, Xb, n=n)
-#    mask!(lxb, mask_n, 0, zero(T), n=n)
-    lxb[mask_n .== 0] = zero(T)
+    mask!(lxb, mask_n, 0, zero(T), n=n)
+#    lxb[mask_n .== 0] = zero(T)
     copy!(b0,b)
     fill!(db, zero(T))
 
@@ -578,8 +591,8 @@ function fit_logistic{T <: Float}(
 
         # db = (x'*(lxb - y)) / n + lambda*b
         BLAS.axpy!(n, -one(T), sdata(y), 1, sdata(lxb), 1)
-#        mask!(lxb, mask_n, 0, zero(T), n=n)
-        lxb[mask_n .== 0] = zero(T)
+        mask!(lxb, mask_n, 0, zero(T), n=n)
+#        lxb[mask_n .== 0] = zero(T)
         BLAS.gemv!('T', one(T), sdata(x), sdata(lxb), zero(T), sdata(db))
 #        BLAS.scal!(p, 1/n, sdata(db), 1)
         BLAS.scal!(p, 1/mn, sdata(db), 1)
@@ -588,8 +601,8 @@ function fit_logistic{T <: Float}(
         # d2b = (x'*diagm(l2xb)*x)/n + lambda*I
         # note that log2xb!() already performs division by n on l2xb
         copy!(x2,x)
-#        mask!(l2xb, mask_n, 0, zero(T), n=n)
-        l2xb[mask_n .== 0] = zero(T)
+        mask!(l2xb, mask_n, 0, zero(T), n=n)
+#        l2xb[mask_n .== 0] = zero(T)
         BLAS.scal!(p, n/mn, sdata(l2xb), 1) # rescale to number of unmasked samples
         scale!(sdata(l2xb), sdata(x2))
         BLAS.gemm!('T', 'N', one(T), sdata(x), sdata(x2), zero(T), sdata(d2b))
@@ -613,7 +626,8 @@ function fit_logistic{T <: Float}(
 
             # b = b0 - 0.5*ntb
             copy!(b,b0)
-            BLAS.axpy!(p,-(0.5^j),ntb,1,b,1)
+#            BLAS.axpy!(p,-(0.5^j),ntb,1,b,1)
+            BLAS.axpy!(p,-one(T) / (2^j),ntb,1,b,1)
 
             # recalculate objective
             new_obj = logistic_loglik(Xb,y,b,mask_n,0,lambda,p, n=n)
