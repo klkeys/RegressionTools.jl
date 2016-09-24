@@ -371,10 +371,10 @@ function project_k!{T <: Float}(
     K    :: DenseVector{Int};
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
-    x    :: DenseVector{T}   = zeros(n),
+    x    :: DenseVector{T} = zeros(eltype(X), n),
 )
-    length(x)    = n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
-    length(K)    = p || throw(DimensionMismatch("Argument K must have one entry per column of x"))
+    length(x) == n || throw(DimensionMismatch("Arguments X and x must have same row dimension"))
+    length(K) == p || throw(DimensionMismatch("Argument K must have one entry per column of x"))
     @inbounds for i = 1:p
         k  = K[i]
         update_col!(x, X, i, n=n, p=p, a=one(T))
@@ -397,7 +397,7 @@ function project_k!{T <: Float}(
     n    :: Int = size(X,1),
     p    :: Int = size(X,2),
 )
-    length(x)    = n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
+    length(x) == n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
     vec!(x, X, k=n*p, n=n, p=p)
     a = select(x, k, by=abs, rev=true)
     threshold!(X, abs(a))
