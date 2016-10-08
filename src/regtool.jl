@@ -777,7 +777,7 @@ end
 
 
 """
-    update_xb!(Xb, x, b, indices::Vector{Int}, k [, p=length(b), n=size(x,1)])
+    update_xb!(Xb, x, b, idx::Vector{Int}, k) 
 
 This function efficiently performs the "sparse" matrix-vector product `x*b`, of an `n` x `p` matrix `x` and a `p`-vector `b` with `k` nonzeroes.
 The nonzeroes are encoded in the first `k` elements of the `Int vector `indices`.
@@ -787,28 +787,21 @@ Arguments:
 - `Xb` is the array to overwrite with `x*b`.
 - `x` is the `n` x `p` design matrix.
 - `b` is the `p`-dimensional parameter vector.
-- `indices` is a vector of integers that indexes `b`. The first `k` elements of `indices` should correspond to the `k` nonzeroes of `b`.
+- `idx` is a vector of integers that indexes `b`. The first `k` elements of `idx` should correspond to the `k` nonzeroes of `b`.
 - `k` is the number of nonzeroes in `b`.
-
-Optional Arguments:
-
-- `p` is the trailing dimension of `x` and the dimension of `b`. Defaults to `length(b)`
-- `n` is the leading dimension of `x` and the dimension of `Xb`. Defaults to `size(x,1)`
 """
 function update_xb!{T <: Float}(
-    Xb      :: DenseVector{T},
-    x       :: DenseMatrix{T},
-    b       :: DenseVector{T},
-    indices :: DenseVector{Int},
-    k       :: Int;
-    p       :: Int = length(b),
-    n       :: Int = size(x,1)
+    Xb  :: DenseVector{T},
+    x   :: DenseMatrix{T},
+    b   :: DenseVector{T},
+    idx :: DenseVector{Int},
+    k   :: Int;
 )
+    k == length(idx) || throw(ArgumentError("Length of `idx` should equal $k"))
     fill!(Xb, zero(T))
-    @inbounds for i = 1:k
-        idx = indices[i]
-        @inbounds for j = 1:n
-            Xb[j] += b[idx]*x[j,idx]
+    @inbounds for i in idx
+        @inbounds for j in eachindex(Xb) 
+            Xb[j] += b[i]*x[j,i]
         end
     end
 
@@ -817,7 +810,7 @@ end
 
 
 """
-    update_xb!(Xb, x, b, indices::BitArray{1}, k [, p=length(b), n=size(x,1)])
+    update_xb!(Xb, x, b, idx::BitArray{1}, k [, p=length(b), n=size(x,1)])
 
 This function efficiently performs the "sparse" matrix-vector product `x*b`, of an `n` x `p` matrix `x` and a `p`-vector `b` with `k` nonzeroes.
 The nonzeroes are encoded in the first `k` elements of the `Int vector `indices`.
@@ -827,30 +820,23 @@ Arguments:
 - `Xb` is the array to overwrite with `x*b`.
 - `x` is the `n` x `p` design matrix.
 - `b` is the `p`-dimensional parameter vector.
-- `indices` is a `BitArray` that indexes `b`. It must have `k` instances of `true`. 
+- `idx` is a `BitArray` that indexes `b`. It must have `k` instances of `true`. 
 - `k` is the number of nonzeroes in `b`.
-
-Optional Arguments:
-
-- `p` is the trailing dimension of `x` and the dimension of `b`. Defaults to `length(b)`
-- `n` is the leading dimension of `x` and the dimension of `Xb`. Defaults to `size(x,1)`
 """
 function update_xb!{T <: Float}(
-    Xb      :: DenseVector{T},
-    x       :: DenseMatrix{T},
-    b       :: DenseVector{T},
-    indices :: BitArray{1},
-    k       :: Int;
-    p       :: Int = length(b),
-    n       :: Int = size(x,1)
+    Xb  :: DenseVector{T},
+    x   :: DenseMatrix{T},
+    b   :: DenseVector{T},
+    idx :: BitArray{1},
+    k   :: Int;
 )
-    sum(indices) <= k || throw(ArgumentError("Argument indices with $(sum(indices)) trues should have at most $k of them"))
+    sum(idx) <= k || throw(ArgumentError("Argument indices with $(sum(indices)) trues should have at most $k of them"))
     fill!(Xb, zero(T))
     numtrue = 0
-    @inbounds for j = 1:p
-        if indices[j]
+    @inbounds for j in eachindex(idx) 
+        if idx[j]
             numtrue += 1
-            @inbounds @simd for i = 1:n
+            @inbounds for i in eachindex(Xb) 
                 Xb[i] += b[j]*x[i,j]
             end
         end
@@ -858,6 +844,7 @@ function update_xb!{T <: Float}(
     end
     return nothing
 end
+
 
 """
     update_xb(x, b, indices, k [, p=length(b), n=size(x,1)])
