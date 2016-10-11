@@ -489,7 +489,7 @@ function threshold!{T <: Float}(
 end
 
 """
-    threshold!(x, a, tol [, n=length(x)])
+    threshold!(x, a, tol) 
 
 If fed a floating point number `a` in addition to vector `x` and tolerance `tol`,
 then `threshold!` will send to zero all components of `x` where `abs(x - a) < tol`.
@@ -507,7 +507,7 @@ end
 
 
 """
-    threshold!(x, tol [, n=length(x)])
+    threshold!(x, tol)
 
 This subroutine compares the absolute values of the components of a vector `x`
 against a thresholding tolerance `tol`. All elements below `tol` are sent to zero.
@@ -516,10 +516,6 @@ Arguments:
 
 - `x` is the vector to threshold.
 - `tol` is the thresholding tolerance
-
-Optional Arguments:
-
-- `n` is the length of `x`.
 """
 function threshold!{T <: Float}(
     x   :: DenseVector{T},
@@ -532,7 +528,7 @@ function threshold!{T <: Float}(
 end
 
 """
-    threshold!(idx::BitArray{1}, x, tol [, n=length(x)])
+threshold!(idx::BitArray{1}, x, tol)
 
 This subroutine compares the absolute values of the components of a vector `x`
 against a thresholding tolerance `tol`. It then fills `idx` with the result of `abs(x) .> tol`. 
@@ -542,10 +538,6 @@ Arguments:
 - `idx` is the `BitArray` to fill with the thresholding of `x`.
 - `x` is the vector to threshold.
 - `tol` is the thresholding tolerance
-
-Optional Arguments:
-
-- `n` is the length of `x`.
 """
 function threshold!{T <: Float}(
     idx :: BitArray{1},
@@ -561,7 +553,7 @@ end
 
 
 """
-    update_indices!(idx, x [, p = length(x)])
+    update_indices!(idx, x)
 
 Calculate the vector of booleans indicating nonzero status of betas.
 
@@ -569,10 +561,6 @@ Arguments:
 
 - `idx` is a `BitArray` of `p` `Bool`s. It contains `true` for each nonzero component of `x` and `false` otherwise.
 - `x` is the `p`-vector to index.
-
-Optional Arguments:
-
-- `p` is the number of elements in both `x` and `idx`. Defaults to `length(x)`.
 """
 function update_indices!{T <: Float}(
     idx :: BitArray{1},
@@ -715,7 +703,7 @@ function update_xk!{T <: Float}(
 end
 
 """
-    fill_perm!(x, y, idx [, k=length(x), p=length(idx)])
+    fill_perm!(x, y, idx) 
 
 This subroutine fills a `k`-vector `x` from a `p`-vector `y` via an index vector `idx`.
 This variant admits BitArray index vectors.
@@ -725,25 +713,20 @@ Arguments:
 - `x` is the `k`-vector to fill.
 - `y` is the `p`-vector to use in filling `x`.
 - `idx` is either a `BitArray` or `Int` vector` that indexes the components of `y` to put into `x`. If `idx` contains `Int`s, then only the first `k` indices are used. Otherwise, `fill_perm!()` traverses `idx` until it encounters `k` `true`s.
-
-Optional Arguments:
-
-- `k = length(x)`.
-- `p = length(idx)`.
 """
 function fill_perm!{T <: Float}(
     x   :: DenseVector{T},
     y   :: DenseVector{T},
-    idx :: BitArray{1};
-    k   :: Int = length(x),
-    p   :: Int = length(idx)
+    idx :: BitArray{1}
 )
-
+    # x should have one element per "true" in idx
+    @assert length(x) = sum(idx)
+    
     # counter j is used to track the number of trues in idx
     j = 0
 
     # loop over entire vector idx
-    @inbounds for i = 1:p
+    @inbounds for i in eachindex(idx) 
 
         # if current component of idx is a true, then increment j and fill x from y
         if idx[i]
@@ -761,11 +744,10 @@ end
 function fill_perm!{T <: Float}(
     x   :: DenseVector{T},
     y   :: DenseVector{T},
-    idx :: DenseVector{Int};
-    k   :: Int = length(x)
+    idx :: DenseVector{Int}
 )
-    k <= length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)"))
-    @inbounds for i = 1:k
+    @assert length(x) <= length(idx)
+    @inbounds for i in eachindex(x) 
             x[i] = y[idx[i]]
     end
     return nothing
