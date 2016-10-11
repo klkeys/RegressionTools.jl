@@ -277,7 +277,7 @@ function project_k!{T <: Float64}(
     x    :: DenseVector{T},
     k    :: Int;
 )
-    a = select(x, k, by = abs, rev = true)
+    a = select(x, k, by = abs, rev = true) :: T
     threshold!(x,abs(a)) 
     return nothing
 end
@@ -301,7 +301,7 @@ function project_k!{T <: Float64}(
     x    :: DenseVector{T},
     k    :: Int;
 )
-    a = select(x, k, by = abs, rev = true)
+    a = select(x, k, by = abs, rev = true) :: T
     threshold!(idx,x,abs(a)) 
     return nothing
 end
@@ -399,7 +399,7 @@ function project_k!{T <: Float}(
 )
     length(x) == n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
     vec!(x, X, k=n*p, n=n, p=p)
-    a = select(x, k, by=abs, rev=true)
+    a = select(x, k, by=abs, rev=true) :: T
     threshold!(X, abs(a))
     return nothing
 end
@@ -498,10 +498,9 @@ function threshold!{T <: Float}(
     x   :: DenseVector{T},
     a   :: T,
     tol :: T;
-    n   :: Int = length(x)
 )
-    @inbounds for i = 1:n
-        x[i] = ifelse(abs(x[i] - a) < tol, a, x[i])
+    @inbounds for i in eachindex(x) 
+        x[i] = abs(x[i] - a) < tol ? a : x[i]
     end
     return nothing
 end
@@ -525,10 +524,9 @@ Optional Arguments:
 function threshold!{T <: Float}(
     x   :: DenseVector{T},
     tol :: T;
-    n   :: Int = length(x)
 )
-    @inbounds for i = 1:n
-        x[i] = ifelse(abs(x[i]) < tol, zero(T), x[i])
+    @inbounds for i in eachindex(x) 
+        x[i] = abs(x[i]) < tol ? zero(T) : x[i]
     end
     return nothing
 end
@@ -553,9 +551,9 @@ function threshold!{T <: Float}(
     idx :: BitArray{1},
     x   :: DenseVector{T},
     tol :: T;
-    n   :: Int = length(x)
 )
-    @inbounds for i = 1:n
+    @assert length(idx) == length(x)
+    @inbounds for i in eachindex(x) 
         idx[i] = abs(x[i]) >= tol
     end
     return nothing
@@ -579,11 +577,10 @@ Optional Arguments:
 function update_indices!{T <: Float}(
     idx :: BitArray{1},
     x   :: DenseVector{T};
-    p   :: Int = length(x)
 )
-    length(idx) == p || throw(DimensionMismatch("update_indices!: arguments idx and x must have same length!"))
-    @inbounds for i = 1:p
-        idx[i] = ifelse(x[i] != zero(T), true, false)
+    @assert length(idx) == length(x)
+    @inbounds for i in eachindex(x) 
+        idx[i] = x[i] != zero(T)# ? true : false
     end
     return nothing
 end
@@ -619,7 +616,7 @@ function update_col!{T <: Float}(
 )
     length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))
     j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!"))
-    @inbounds @simd for i = 1:n
+    @inbounds for i = 1:n
         z[i] = a*x[i,j]
     end
     return nothing
@@ -664,7 +661,7 @@ function update_col!{T <: Float}(
 )
     size(z,1) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))
     j <= p         || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!"))
-    @inbounds @simd for i = 1:n
+    @inbounds for i = 1:n
         z[i,q] = a*x[i,j]
     end
     return nothing
@@ -914,7 +911,7 @@ function fill_partial!{T <: Float}(
     k  :: Int
 )
     1 <= k0 <= k || throw(ArgumentError("fill_partial!: Start index must lie between 1 and end index"))
-    @inbounds @simd for i = k0:k
+    @inbounds for i = k0:k
         x[i] = a
     end
     return x
