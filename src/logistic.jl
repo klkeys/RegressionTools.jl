@@ -21,7 +21,7 @@ end
 """
     update_x!(x, x0, y, idxs, a)
 
-If fed an `Int` vector `idxs` of length `p` that sorts `x` by `abs()`, then `x` is updated as `x[idxs[1:k]] = x0[idxs[1:k]] - a*y[idxs[1:k]]`.
+If fed an `Int` vector `idxs` that sorts `x` by `abs()`, then `x` is updated as `x[idxs[1:k]] = x0[idxs[1:k]] - a*y[idxs[1:k]]`.
 The output is comparable to
 
     copy!(x,x0)
@@ -30,15 +30,15 @@ The output is comparable to
 but `update_x!()` exploits the implied sparsity of `x` by only updating the top `k` components in magnitude.
 """
 function update_x!{T <: Float}(
-    x     :: DenseVector{T},
-    x0    :: DenseVector{T},
-    y     :: DenseVector{T},
-    idxs  :: DenseVector{Int},
-    a     :: T
+    x    :: DenseVector{T},
+    x0   :: DenseVector{T},
+    y    :: DenseVector{T},
+    idxs :: DenseVector{Int},
+    a    :: T
 )
     fill!(x, zero(T))
     @inbounds for i in eachindex(idxs)
-        idx = idxs[i]
+        idx    = idxs[i]
         x[idx] = x0[idx] - a*y[idx]
     end
     return nothing
@@ -70,11 +70,10 @@ end
 This subroutine computes `y = logistic(x)` in-place, modifying `y`."
 """
 function logistic!{T <: Float}(
-	y :: DenseVector{T},
-	x :: DenseVector{T};
-	n :: Int = length(y)
+	y :: DenseVecOrMat{T},
+	x :: DenseVecOrMat{T}
 )
-    @assert length(y) == length(x)
+    @assert size(y) == size(x)
     @inbounds for i in eachindex(x)
 		y[i] = one(T) / (one(T) + exp(-x[i]))
 	end
@@ -103,6 +102,32 @@ function logistic_loglik{T <: Float}(
 	@inbounds for i = 1:k
 		idx = idxs[i]
         s  += λ*β[idx]*β[idx] / 2
+	end
+	return s
+end
+
+function logistic_loglik{T <: Float}(
+	xβ   :: DenseVector{T},
+    y    :: DenseVector{T},
+	β    :: DenseVector{T},
+	idxs :: BitArray{1},
+	λ    :: T,
+    k    :: Int
+)
+    n = length(xβ)
+	s = zero(T)
+	@inbounds for i = 1:n
+		s += log(one(T) + exp(xβ[i])) - xβ[i]*y[i]
+	end
+    s /= n
+    ntrue = 0
+    @inbounds for i in eachindex(idxs) 
+		idx = idxs[i]
+        if idx
+            ntrue += 1
+            s  += λ*β[idx]*β[idx] / 2
+        end
+        ntrue >= k && break
 	end
 	return s
 end
@@ -228,28 +253,28 @@ function logistic_loglik{T <: Float}(
 end
 
 """
-    logistic_grad!(df, lxβ, x, y, b, xβ, idxs, k, λ [, n=length(xβ)])
+    logistic_grad!(df, lxβ, x, y, b, xβ, idxs, k, λ)
 
 Compute the *partial* gradient of the regularized negative logistic loglikelihood as indexed by the `Int` vector `idxs`.
 """
 function logistic_grad!{T <: Float}(
-    df     :: DenseVector{T},
-    lxβ    :: DenseVector{T},
-    x      :: DenseMatrix{T},
-    y      :: DenseVector{T},
-    b      :: DenseVector{T},
-    xβ     :: DenseVector{T},
-    idxs   :: DenseVector{Int},
-    k      :: Int,
-    λ :: T;
-    n      :: Int = length(xβ)
+    df   :: DenseVector{T},
+    lxβ  :: DenseVector{T},
+    x    :: DenseMatrix{T},
+    y    :: DenseVector{T},
+    b    :: DenseVector{T},
+    xβ   :: DenseVector{T},
+    idxs :: DenseVector{Int},
+    k    :: Int,
+    λ    :: T;
 )
-    logistic!(lxβ,xβ,n=n)
+    n = length(xβ)
+    logistic!(lxβ,xβ)
     fill!(df, zero(T))
     @inbounds for i = 1:k
         idx = idxs[i]
 #        df[idx] = zero(T)
-        @inbounds @simd for j = 1:n
+        @inbounds for j = 1:n
             df[idx] += x[j,idx] * (lxβ[j] - y[j])
         end
         df[idx] /= n
@@ -257,6 +282,40 @@ function logistic_grad!{T <: Float}(
     end
     return nothing
 end
+
+function logistic_grad!{T <: Float}(
+    df   :: DenseVector{T},
+    lxβ  :: DenseVector{T},
+    x    :: DenseMatrix{T},
+    y    :: DenseVector{T},
+    b    :: DenseVector{T},
+    xβ   :: DenseVector{T},
+    idxs :: BitArray{1}, 
+    k    :: Int,
+    λ    :: T;
+)
+    n = length(xβ)
+    logistic!(lxβ,xβ)
+    fill!(df, zero(T))
+    ntrue = 0
+    @inbounds for i in eachindex(idxs) 
+        idx = idxs[i]
+#        df[idx] = zero(T)
+        if idx
+            ntrue += 1
+            @inbounds for j = 1:n
+                df[idx] += x[j,idx] * (lxβ[j] - y[j])
+            end
+            df[idx] /= n
+            df[idx] += λ*b[idx]
+        end
+        ntrue >= k && break
+    end
+    return nothing
+end
+
+### 18 OCT 2016:
+### must redo logistic_grad! for revamped BEDFiles
 
 """
     logistic_grad!(df, lxβ, x::BEDFile, y, b, xβ, means, invstds, idxs, mask_n, k, λ [, n=length(xβ)])
@@ -300,26 +359,25 @@ end
 
 
 """
-    logistic_grad!(df, lxβ, x, y, b, xβ, λ [, n=length(xβ), p=length(df)])
+    logistic_grad!(df, lxβ, x, y, β, xβ, λ)
 
 Computes the full gradient of the negative logistic loglikelihood.
 """
 function logistic_grad!{T <: Float}(
-    df     :: DenseVector{T},
-    lxβ    :: DenseVector{T},
-    x      :: DenseMatrix{T},
-    y      :: DenseVector{T},
-    b      :: DenseVector{T},
-    xβ     :: DenseVector{T},
-    λ :: T;
-    n      :: Int = length(xβ),
-    p      :: Int = length(df),
+    df  :: DenseVector{T},
+    lxβ :: DenseVector{T},
+    x   :: DenseMatrix{T},
+    y   :: DenseVector{T},
+    β   :: DenseVector{T},
+    xβ  :: DenseVector{T},
+    λ   :: T;
 )
-    logistic!(lxβ,xβ,n=n)
-    BLAS.axpy!(n,-one(T),y,1,lxβ,1)
-    BLAS.gemv!('T',one(T),x,lxβ,zero(T),df)
-    BLAS.scal!(p,1/n,df,1)
-    BLAS.axpy!(p,λ,b,1,df,1)
+    n = length(y)
+    logistic!(lxβ, xβ)
+    BLAS.axpy!(-one(T), y, lxβ)
+    At_mul_B!(df, x, lxβ)
+    scale!(df, 1/n)
+    BLAS.axpy!(λ, β, df)
     return nothing
 end
 
