@@ -329,24 +329,22 @@ function logistic_grad!{T <: Float}(
     y       :: DenseVector{T},
     b       :: DenseVector{T},
     xβ      :: DenseVector{T},
-    means   :: DenseVector{T},
-    invstds :: DenseVector{T},
     idxs    :: DenseVector{Int},
-    mask_n  :: DenseVector{Int},
+    mask_n  :: BitArray{1}, 
     k       :: Int,
     λ  :: T;
-    n       :: Int = length(xβ),
     mn      :: Int = sum(mask_n),
 )
-    logistic!(lxβ,xβ,n=n)
+    n = length(y)
+    logistic!(lxβ, xβ,n=n)
     fill!(df, zero(T))
     @inbounds for i = 1:k
         idx = idxs[i]
-        m   = means[idx]
-        d   = invstds[idx]
+        m   = x.means[idx]
+        d   = x.invstds[idx]
 #        df[idx] = zero(T)
         @inbounds for j = 1:n
-            if mask_n[i] == 1
+            if mask_n[i]
                 df[idx] += (x[j,idx] - m) * d * (lxβ[j] - y[j])
             end
         end
@@ -389,43 +387,39 @@ Computes the full gradient of the negative logistic loglikelihood with a `BEDFil
 function logistic_grad!{T <: Float}(
     df      :: SharedVector{T},
     lxβ     :: SharedVector{T},
-    x       :: BEDFile,
+    x       :: BEDFile{T},
     y       :: SharedVector{T},
     b       :: SharedVector{T},
     xβ      :: SharedVector{T},
-    means   :: SharedVector{T},
-    invstds :: SharedVector{T},
-    mask_n  :: DenseVector{Int},
-    λ  :: T;
-    pids    :: DenseVector{Int} = procs(),
-    n       :: Int = length(xβ),
-    p       :: Int = length(df),
-    mn      :: Int = sum(mask_n),
+    mask_n  :: BitArray{1}, 
+    λ       :: T;
+    pids    :: Vector{Int} = procs(x)
 )
-    logistic!(lxβ,xβ,n=n)
-    BLAS.axpy!(n,-one(T),sdata(y),1,sdata(lxβ),1)
-    xty!(df,x,lxβ,mask_n, means=means, invstds=invstds, pids=pids)
-#    BLAS.scal!(p,1/n,sdata(df),1)
-    BLAS.scal!(p,1/mn,sdata(df),1)
-    BLAS.axpy!(p,λ,sdata(b),1,sdata(df),1)
+    n,p = size(x)
+    mn  = sum(mask_n)
+    logistic!(lxβ, xβ)
+    BLAS.axpy!(-one(T), sdata(y), sdata(lxβ))
+    At_mul_B!(df, x, lxβ, mask_n, pids=pids)
+    scale!(df, 1/mn)
+    BLAS.axpy!(λ, sdata(b), sdata(df))
     return nothing
 end
 
 
 """
-    log2xb!(lxβ, l2xb, xβ [, n=length(xβ)])
+    log2xb!(lxβ, l2xb, xβ)
 
-Compute `lxβ = logistic(xβ)` and `l2xb = lxβ*(1 - lxβ)` in-place and in one pass, overwriting `lxβ` and `l2xb`.
+For `n`-vectors lxβ, l2xβ, and xβ, Compute `lxβ = logistic(xβ)` and `l2xb = lxβ*(1 - lxβ) / n` in-place and in one pass, overwriting `lxβ` and `l2xb`.
 """
 function log2xb!{T <: Float}(
     lxβ  :: DenseVector{T},
-    l2xb :: DenseVector{T},
-    xβ   :: DenseVector{T};
-    n    :: Int = length(xβ)
+    l2xβ :: DenseVector{T},
+    xβ   :: DenseVector{T}
 )
+    n = length(lxβ)
     @inbounds for i = 1:n
         lxβ[i]  = one(T) / (one(T) + exp(-xβ[i]))
-        l2xb[i] = lxβ[i]*(one(T) - lxβ[i]) / n
+        l2xβ[i] = lxβ[i]*(one(T) - lxβ[i]) / n
     end
     return nothing
 end
