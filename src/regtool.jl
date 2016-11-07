@@ -718,7 +718,7 @@ function fill_perm!{T <: Float}(
 )
     # x should have one element per "true" in idx
     k = length(x)
-    @assert k == sum(idx)
+    #@assert k == sum(idx)
     
     # counter j is used to track the number of trues in idx
     j = 0
