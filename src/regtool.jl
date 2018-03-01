@@ -58,13 +58,10 @@ function vecnorm{T <: Float}(
     x :: DenseMatrix{T},
     y :: DenseMatrix{T}
 )
-    (m,n) = size(x)
-    (m,n) == size(y) || throw(DimensionMismatch("size(x) = ($m,$n) but size(y) = $(size(y))"))
+    @assert size(x) == size(y)
     s = zero(T)
-    @inbounds for j = 1:n
-        @inbounds for i = 1:m
-            s += (x[i,j] - y[i,j])^2
-        end
+    @inbounds for j in eachindex(x) 
+            s += (x[i] - y[i])^2
     end
     return sqrt(s)
 end
@@ -277,7 +274,7 @@ function project_k!{T <: Float64}(
     x    :: DenseVector{T},
     k    :: Int;
 )
-    a = select(x, k, by = abs, rev = true)
+    a = select(x, k, by = abs, rev = true) :: T
     threshold!(x,abs(a)) 
     return nothing
 end
@@ -301,7 +298,7 @@ function project_k!{T <: Float64}(
     x    :: DenseVector{T},
     k    :: Int;
 )
-    a = select(x, k, by = abs, rev = true)
+    a = select(x, k, by = abs, rev = true) :: T
     threshold!(idx,x,abs(a)) 
     return nothing
 end
@@ -399,7 +396,7 @@ function project_k!{T <: Float}(
 )
     length(x) == n*p || throw(DimensionMismatch("Arguments X and x must have same number of elements"))
     vec!(x, X, k=n*p, n=n, p=p)
-    a = select(x, k, by=abs, rev=true)
+    a = select(x, k, by=abs, rev=true) :: T
     threshold!(X, abs(a))
     return nothing
 end
@@ -489,7 +486,7 @@ function threshold!{T <: Float}(
 end
 
 """
-    threshold!(x, a, tol [, n=length(x)])
+    threshold!(x, a, tol) 
 
 If fed a floating point number `a` in addition to vector `x` and tolerance `tol`,
 then `threshold!` will send to zero all components of `x` where `abs(x - a) < tol`.
@@ -498,17 +495,16 @@ function threshold!{T <: Float}(
     x   :: DenseVector{T},
     a   :: T,
     tol :: T;
-    n   :: Int = length(x)
 )
-    @inbounds for i = 1:n
-        x[i] = ifelse(abs(x[i] - a) < tol, a, x[i])
+    @inbounds for i in eachindex(x) 
+        x[i] = abs(x[i] - a) < tol ? a : x[i]
     end
     return nothing
 end
 
 
 """
-    threshold!(x, tol [, n=length(x)])
+    threshold!(x, tol)
 
 This subroutine compares the absolute values of the components of a vector `x`
 against a thresholding tolerance `tol`. All elements below `tol` are sent to zero.
@@ -517,24 +513,19 @@ Arguments:
 
 - `x` is the vector to threshold.
 - `tol` is the thresholding tolerance
-
-Optional Arguments:
-
-- `n` is the length of `x`.
 """
 function threshold!{T <: Float}(
     x   :: DenseVector{T},
     tol :: T;
-    n   :: Int = length(x)
 )
-    @inbounds for i = 1:n
-        x[i] = ifelse(abs(x[i]) < tol, zero(T), x[i])
+    @inbounds for i in eachindex(x) 
+        x[i] = abs(x[i]) < tol ? zero(T) : x[i]
     end
     return nothing
 end
 
 """
-    threshold!(idx::BitArray{1}, x, tol [, n=length(x)])
+threshold!(idx::BitArray{1}, x, tol)
 
 This subroutine compares the absolute values of the components of a vector `x`
 against a thresholding tolerance `tol`. It then fills `idx` with the result of `abs(x) .> tol`. 
@@ -544,18 +535,14 @@ Arguments:
 - `idx` is the `BitArray` to fill with the thresholding of `x`.
 - `x` is the vector to threshold.
 - `tol` is the thresholding tolerance
-
-Optional Arguments:
-
-- `n` is the length of `x`.
 """
 function threshold!{T <: Float}(
     idx :: BitArray{1},
     x   :: DenseVector{T},
     tol :: T;
-    n   :: Int = length(x)
 )
-    @inbounds for i = 1:n
+    @assert length(idx) == length(x)
+    @inbounds for i in eachindex(x) 
         idx[i] = abs(x[i]) >= tol
     end
     return nothing
@@ -563,7 +550,7 @@ end
 
 
 """
-    update_indices!(idx, x [, p = length(x)])
+    update_indices!(idx, x)
 
 Calculate the vector of booleans indicating nonzero status of betas.
 
@@ -571,19 +558,14 @@ Arguments:
 
 - `idx` is a `BitArray` of `p` `Bool`s. It contains `true` for each nonzero component of `x` and `false` otherwise.
 - `x` is the `p`-vector to index.
-
-Optional Arguments:
-
-- `p` is the number of elements in both `x` and `idx`. Defaults to `length(x)`.
 """
 function update_indices!{T <: Float}(
     idx :: BitArray{1},
     x   :: DenseVector{T};
-    p   :: Int = length(x)
 )
-    length(idx) == p || throw(DimensionMismatch("update_indices!: arguments idx and x must have same length!"))
-    @inbounds for i = 1:p
-        idx[i] = ifelse(x[i] != zero(T), true, false)
+    @assert length(idx) == length(x)
+    @inbounds for i in eachindex(x) 
+        idx[i] = x[i] != zero(T)# ? true : false
     end
     return nothing
 end
@@ -619,7 +601,7 @@ function update_col!{T <: Float}(
 )
     length(z) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))
     j <= p || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!"))
-    @inbounds @simd for i = 1:n
+    @inbounds for i = 1:n
         z[i] = a*x[i,j]
     end
     return nothing
@@ -664,7 +646,7 @@ function update_col!{T <: Float}(
 )
     size(z,1) == n || throw(DimensionMismatch("update_col!: arguments z and X must have same number of rows!"))
     j <= p         || throw(DimensionMismatch("update_col!: index j must not exceed number of columns p!"))
-    @inbounds @simd for i = 1:n
+    @inbounds for i = 1:n
         z[i,q] = a*x[i,j]
     end
     return nothing
@@ -718,7 +700,7 @@ function update_xk!{T <: Float}(
 end
 
 """
-    fill_perm!(x, y, idx [, k=length(x), p=length(idx)])
+    fill_perm!(x, y, idx) 
 
 This subroutine fills a `k`-vector `x` from a `p`-vector `y` via an index vector `idx`.
 This variant admits BitArray index vectors.
@@ -728,25 +710,21 @@ Arguments:
 - `x` is the `k`-vector to fill.
 - `y` is the `p`-vector to use in filling `x`.
 - `idx` is either a `BitArray` or `Int` vector` that indexes the components of `y` to put into `x`. If `idx` contains `Int`s, then only the first `k` indices are used. Otherwise, `fill_perm!()` traverses `idx` until it encounters `k` `true`s.
-
-Optional Arguments:
-
-- `k = length(x)`.
-- `p = length(idx)`.
 """
 function fill_perm!{T <: Float}(
     x   :: DenseVector{T},
     y   :: DenseVector{T},
-    idx :: BitArray{1};
-    k   :: Int = length(x),
-    p   :: Int = length(idx)
+    idx :: BitArray{1}
 )
-
+    # x should have one element per "true" in idx
+    k = length(x)
+    #@assert k == sum(idx)
+    
     # counter j is used to track the number of trues in idx
     j = 0
 
     # loop over entire vector idx
-    @inbounds for i = 1:p
+    @inbounds for i in eachindex(idx) 
 
         # if current component of idx is a true, then increment j and fill x from y
         if idx[i]
@@ -764,11 +742,10 @@ end
 function fill_perm!{T <: Float}(
     x   :: DenseVector{T},
     y   :: DenseVector{T},
-    idx :: DenseVector{Int};
-    k   :: Int = length(x)
+    idx :: DenseVector{Int}
 )
-    k <= length(idx) || throw(DimensionMismatch("fill_perm!: length(x) != length(idx)"))
-    @inbounds for i = 1:k
+    @assert length(x) <= length(idx)
+    @inbounds for i in eachindex(x) 
             x[i] = y[idx[i]]
     end
     return nothing
@@ -777,38 +754,31 @@ end
 
 
 """
-    update_xb!(Xb, x, b, indices::Vector{Int}, k [, p=length(b), n=size(x,1)])
+    update_xb!(xβ, x, β, idx::Vector{Int}, k) 
 
-This function efficiently performs the "sparse" matrix-vector product `x*b`, of an `n` x `p` matrix `x` and a `p`-vector `b` with `k` nonzeroes.
+This function efficiently performs the "sparse" matrix-vector product `x*β`, of an `n` x `p` matrix `x` and a `p`-vector `β` with `k` nonzeroes.
 The nonzeroes are encoded in the first `k` elements of the `Int vector `indices`.
 
 Arguments:
 
-- `Xb` is the array to overwrite with `x*b`.
+- `xβ` is the array to overwrite with `x*β`.
 - `x` is the `n` x `p` design matrix.
-- `b` is the `p`-dimensional parameter vector.
-- `indices` is a vector of integers that indexes `b`. The first `k` elements of `indices` should correspond to the `k` nonzeroes of `b`.
-- `k` is the number of nonzeroes in `b`.
-
-Optional Arguments:
-
-- `p` is the trailing dimension of `x` and the dimension of `b`. Defaults to `length(b)`
-- `n` is the leading dimension of `x` and the dimension of `Xb`. Defaults to `size(x,1)`
+- `β` is the `p`-dimensional parameter vector.
+- `idx` is a vector of integers that indexes `β`. The first `k` elements of `idx` should correspond to the `k` nonzeroes of `β`.
+- `k` is the number of nonzeroes in `β`.
 """
 function update_xb!{T <: Float}(
-    Xb      :: DenseVector{T},
-    x       :: DenseMatrix{T},
-    b       :: DenseVector{T},
-    indices :: DenseVector{Int},
-    k       :: Int;
-    p       :: Int = length(b),
-    n       :: Int = size(x,1)
+    xβ  :: DenseVector{T},
+    x   :: DenseMatrix{T},
+    β   :: DenseVector{T},
+    idx :: DenseVector{Int},
+    k   :: Int;
 )
-    fill!(Xb, zero(T))
-    @inbounds for i = 1:k
-        idx = indices[i]
-        @inbounds for j = 1:n
-            Xb[j] += b[idx]*x[j,idx]
+    k == length(idx) || throw(ArgumentError("Length of `idx` should equal $k"))
+    fill!(xβ, zero(T))
+    @inbounds for i in idx
+        @inbounds for j in eachindex(xβ) 
+            xβ[j] += β[i]*x[j,i]
         end
     end
 
@@ -817,47 +787,41 @@ end
 
 
 """
-    update_xb!(Xb, x, b, indices::BitArray{1}, k [, p=length(b), n=size(x,1)])
+    update_xb!(xβ, x, b, idx::BitArray{1}, k)
 
-This function efficiently performs the "sparse" matrix-vector product `x*b`, of an `n` x `p` matrix `x` and a `p`-vector `b` with `k` nonzeroes.
+This function efficiently performs the "sparse" matrix-vector product `x*β`, of an `n` x `p` matrix `x` and a `p`-vector `β` with `k` nonzeroes.
 The nonzeroes are encoded in the first `k` elements of the `Int vector `indices`.
 
 Arguments:
 
-- `Xb` is the array to overwrite with `x*b`.
+- `xβ` is the array to overwrite with `x*β`.
 - `x` is the `n` x `p` design matrix.
-- `b` is the `p`-dimensional parameter vector.
-- `indices` is a `BitArray` that indexes `b`. It must have `k` instances of `true`. 
-- `k` is the number of nonzeroes in `b`.
-
-Optional Arguments:
-
-- `p` is the trailing dimension of `x` and the dimension of `b`. Defaults to `length(b)`
-- `n` is the leading dimension of `x` and the dimension of `Xb`. Defaults to `size(x,1)`
+- `β` is the `p`-dimensional parameter vector.
+- `idx` is a `BitArray` that indexes `β`. It must have `k` instances of `true`. 
+- `k` is the number of nonzeroes in `β`.
 """
 function update_xb!{T <: Float}(
-    Xb      :: DenseVector{T},
-    x       :: DenseMatrix{T},
-    b       :: DenseVector{T},
-    indices :: BitArray{1},
-    k       :: Int;
-    p       :: Int = length(b),
-    n       :: Int = size(x,1)
+    xβ  :: DenseVector{T},
+    x   :: DenseMatrix{T},
+    β   :: DenseVector{T},
+    idx :: BitArray{1},
+    k   :: Int;
 )
-    sum(indices) <= k || throw(ArgumentError("Argument indices with $(sum(indices)) trues should have at most $k of them"))
-    fill!(Xb, zero(T))
+    sum(idx) <= k || throw(ArgumentError("Argument indices with $(sum(indices)) trues should have at most $k of them"))
+    fill!(xβ, zero(T))
     numtrue = 0
-    @inbounds for j = 1:p
-        if indices[j]
+    @inbounds for j in eachindex(idx) 
+        if idx[j]
             numtrue += 1
-            @inbounds @simd for i = 1:n
-                Xb[i] += b[j]*x[i,j]
+            @inbounds for i in eachindex(xβ) 
+                xβ[i] += β[j]*x[i,j]
             end
         end
         numtrue >= k && break
     end
     return nothing
 end
+
 
 """
     update_xb(x, b, indices, k [, p=length(b), n=size(x,1)])
@@ -927,7 +891,7 @@ function fill_partial!{T <: Float}(
     k  :: Int
 )
     1 <= k0 <= k || throw(ArgumentError("fill_partial!: Start index must lie between 1 and end index"))
-    @inbounds @simd for i = k0:k
+    @inbounds for i = k0:k
         x[i] = a
     end
     return x
