@@ -37,7 +37,7 @@ export vecnorm
 export issymmetric
 export vec!
 
-typealias Float Union{Float32, Float64}
+const Float = Union{Float32, Float64}
 
 include("regtool.jl")
 include("logistic.jl")
