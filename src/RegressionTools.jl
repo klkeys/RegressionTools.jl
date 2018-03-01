@@ -1,7 +1,7 @@
 module RegressionTools
 
 using Distances: euclidean
-using StatsBase: logistic, softplus, logit
+using StatsFuns: logistic, softplus, logit
 using PLINK
 
 import Base.vecnorm
