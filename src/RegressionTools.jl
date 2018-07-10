@@ -39,7 +39,10 @@ export vec!
 
 const Float = Union{Float32, Float64}
 
-include("regtool.jl")
-include("logistic.jl")
+depwarn("NOTE: As of Julia v0.6, this package is deprecated and no longer maintained.\n")
+
+# do not load any functions; deprecated package will now be empty
+#include("regtool.jl")
+#include("logistic.jl")
 
 end # end module RegressionTools
